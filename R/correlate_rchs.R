@@ -13,13 +13,13 @@
 #' @return dataframe
 #' @export
 
-correlate_rchs = function(redd_df = NULL,
-                          date_nm = "SurveyDate",
-                          cor_redd_nm = "NewRedds",
-                          reach_nm = "Reach",
-                          use = "pairwise.complete.obs",
-                          ...) {
-  if(is.null(redd_df)) {
+correlate_rchs <- function(redd_df = NULL,
+                           date_nm = "SurveyDate",
+                           cor_redd_nm = "NewRedds",
+                           reach_nm = "Reach",
+                           use = "pairwise.complete.obs",
+                           ...) {
+  if (is.null(redd_df)) {
     stop("redd data must be supplied")
   }
 
@@ -27,43 +27,53 @@ correlate_rchs = function(redd_df = NULL,
     pull({{ reach_nm }}) %>%
     n_distinct()
 
-  if(n_rchs == 1) {
-    rch_nm = redd_df |>
+  if (n_rchs == 1) {
+    rch_nm <- redd_df |>
       pull({{ reach_nm }}) %>%
       unique()
-    cor_mat = matrix(1, 1, 1,
-                     dimnames = list(rch_nm,
-                                     rch_nm))
+    cor_mat <- matrix(1, 1, 1,
+      dimnames = list(
+        rch_nm,
+        rch_nm
+      )
+    )
   } else {
-
     # check the class of survey date column
     date_class <- redd_df |>
-      pull({{ date_nm}}) |>
+      pull({{ date_nm }}) |>
       class()
-    if(date_class == "Date") {
+    if (date_class == "Date") {
       redd_df <- redd_df |>
-        mutate(across({{ date_nm }},
-                      as.POSIXct))
+        mutate(across(
+          {{ date_nm }},
+          as.POSIXct
+        ))
     }
 
     cor_mat <- redd_df |>
-      rename(redds = {{ cor_redd_nm }},
-             reach = {{ reach_nm }},
-             surv_date = {{ date_nm }}) |>
+      rename(
+        redds = {{ cor_redd_nm }},
+        reach = {{ reach_nm }},
+        surv_date = {{ date_nm }}
+      ) |>
       mutate(surv_period = lubridate::week(surv_date)) |>
       group_by(reach, surv_period) %>%
       summarize(across(redds,
-                       mean,
-                       na.rm = T)) %>%
-      pivot_wider(names_from = reach,
-                  values_from = redds,
-                  names_sort = T) |>
+        mean,
+        na.rm = T
+      )) %>%
+      pivot_wider(
+        names_from = reach,
+        values_from = redds,
+        names_sort = T
+      ) |>
       select(-surv_period) |>
       # corrr::correlate(...)
-      stats::cor(use = use,
-                 ...)
+      stats::cor(
+        use = use,
+        ...
+      )
   }
 
   return(cor_mat)
-
 }
