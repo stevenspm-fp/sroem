@@ -1,5 +1,5 @@
 Package: sroem
-Title: Salmonid Redd Observer Error Model
+Title: Salmonid Redd Observer Error Models
 Version: 0.0.0.9000
 Authors@R: 
     person("Kevin", "See", , "Kevin.See@dfw.wa.gov", role = c("aut", "cre"),
