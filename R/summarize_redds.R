@@ -15,32 +15,36 @@
 #' @export
 
 summarize_redds <- function(redd_df = NULL,
-                            group_vars = c("River", "Reach", "Index", "SurveyType"),
-                            summ_vars = c("River", "Location"),
-                            new_redd_nm = "NewRedds",
-                            vis_redd_nm = "VisibleRedds",
-                            net_err_nm = "NetError",
-                            net_se_nm = "NetErrorSE",
+                            species = c("Steelhead", "Spring Chinook"),
+                            group_vars = c(river, reach, index, survey_type),
+                            summ_vars = c("river", "location"),
+                            new_redd_nm = "new_redds",
+                            vis_redd_nm = "visible_redds",
+                            net_err_nm = "net_error",
+                            net_se_nm = "net_error_se",
                             min_non0_wks = 3,
                             min_redds = 2,
+                            gauc = NULL,
+                            add_zeros = F,
                             use_cor = F,
-                            date_nm = "SurveyDate",
-                            cor_redd_nm = "NewRedds",
-                            reach_nm = "Reach",
+                            date_nm = "survey_date",
+                            cor_redd_nm = "new_redds",
+                            reach_nm = "reach",
                             use = "pairwise.complete.obs",
                             method = c(
                               "pearson",
                               "kendall",
                               "spearman"
                             ),
-                            add_zeros = F,
                             ...) {
   if (is.null(redd_df)) {
     stop("redd data must be supplied")
   }
 
   # estimate redds for each reach using net error estimate and GAUC
-  rch_est <- estimateRedds(redd_df,
+  rch_est <- estimate_redds(
+    redd_df,
+    species = species,
     group_vars = unique(c(group_vars, summ_vars)),
     new_redd_nm = new_redd_nm,
     vis_redd_nm = vis_redd_nm,
@@ -48,6 +52,7 @@ summarize_redds <- function(redd_df = NULL,
     net_se_nm = net_se_nm,
     min_non0_wks = min_non0_wks,
     min_redds = min_redds,
+    gauc = gauc,
     add_zeros = add_zeros
   )
 
@@ -102,7 +107,7 @@ summarize_redds <- function(redd_df = NULL,
       dplyr::summarize(
         cor_mat = purrr::map(data,
           .f = function(x) {
-            correlateRchs(x,
+            correlate_rchs(x,
               date_nm = date_nm,
               cor_redd_nm = cor_redd_nm,
               reach_nm = reach_nm,

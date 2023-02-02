@@ -41,7 +41,7 @@ fit_gauc <- function(data,
   # F is redd days
   Fg <- sqrt(-pi / x[3]) * exp(x[1] - x[2]^2 / (4 * x[3]))
   # adjust redd days for operational redd life & net error
-  E <- Fg / (SL * v)
+  E <- Fg / (SL * (v + 1))
   # Obtain std error of estimated redd-days, using delta method
   # check that vcov is correct dim
   if (sum(dim(vcov(g)) == c(3, 3)) == 2) {
@@ -51,7 +51,7 @@ fit_gauc <- function(data,
     )
 
     # Include uncertainty in redd-days, stream-life and observer efficiency
-    E_se <- msm::deltamethod(~ x1 / (x2 * x3),
+    E_se <- msm::deltamethod(~ x1 / (x2 * (x3 + 1)),
       mean = c(Fg, SL, v),
       cov = diag(c(F_se, SL_se, v_se))^2
     )
