@@ -4,7 +4,7 @@
 #'
 #' @author Kevin See
 #'
-#' @inheritParams estimateRedds
+#' @inheritParams estimate_redds
 #' @param date_nm quoted name of column in {redd_df} listing date of each survey
 #' @param cor_redd_nm quoted name of column in {redd_df} listing number of redds found during that survey, to be used in the correlation
 #' @param reach_nm quoted name of column in {redd_df} listing name of reach

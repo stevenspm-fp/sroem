@@ -1,30 +1,17 @@
-#' Number of Removals in Wenatchee
+#' One Observer Steelhead Redd Observer Error
 #'
-#' A dataset containing how many fish were removed by origin, location and year (2014-2019)
+#' A dataset containing the data to fit the one-observer steelhead redd observer error model
 #'
-#' @format A data frame with 36 rows and 5 variables:
+#' @format A data frame with 100 rows and 74 variables:
 #' \describe{
-#'   \item{Year}{Spawn year}
-#'   \item{Source}{Where the removal happened}
-#'   \item{Origin}{Hatchery or natural}
-#'   \item{rem}{How many fish were removed}
-#'   \item{Area}{Which area in the DABOM model does this correspond to}
+#'   \item{year}{Spawn year}
+#'   \item{stream}{What stream is the survey in}
+#'   \item{reach}{what reach was surveyed}
+#'   \item{surveyor}{code for which surveyor conducted survey}
+#'   \item{date}{date of survey}
+#'   \item{visible_redds}{how many redds were visible to be counted on that date, based on census surveys}
+#'   \item{total_features}{how many redds did the naive surveyors count on that survey}
 #'   ...
 #' }
-#' @source Michael Hughes at WDFW
-"removal_df"
-
-#' Mean Thalweg CV
-#'
-#' A dataset containing the mean thalweg CV of each reach in the Wenatchee, by using all measurements across all years
-#'
-#' @format A data frame with 10 rows and 4 variables:
-#' \describe{
-#'   \item{Reach}{Reach label}
-#'   \item{n_yrs}{Number of years measurements taken in that reach}
-#'   \item{n_meas}{Number of distinct thalweg measurements taken in that reach}
-#'   \item{MeanThalwegCV}{average CV of thalweg depth}
-#'   ...
-#' }
-#' @source Michael Hughes at WDFW
-"thlwg_summ"
+#' @source Michael Hughes and Andrew Murdoch at WDFW
+"one_obs_sthd"

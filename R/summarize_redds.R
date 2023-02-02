@@ -4,8 +4,8 @@
 #'
 #' @author Kevin See
 #'
-#' @inheritParams estimateRedds
-#' @inheritParams correlateRchs
+#' @inheritParams estimate_redds
+#' @inheritParams correlate_rchs
 #' @inheritParams corrr::correlate
 #' @param summ_vars vector of column names from {redd_df} to group summaries of redd results by
 #' @param use_cor should correlations between reaches be used in calculating standard errors? Default is {FALSE}
