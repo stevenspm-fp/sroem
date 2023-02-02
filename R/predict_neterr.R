@@ -12,9 +12,14 @@
 #' @return tibble
 #' @export
 
-predict_neterr <- function(redd_df,
+predict_neterr <- function(redd_df = NULL,
                            species = c("Steelhead", "Spring Chinook"),
                            num_obs = c("two", "one")) {
+
+  if(is.null(redd_df)) {
+    stop("Redd data not supplied.")
+  }
+
   species <- match.arg(species)
   num_obs <- match.arg(num_obs)
 
