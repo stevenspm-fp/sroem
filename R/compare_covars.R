@@ -5,6 +5,7 @@
 #' @author Kevin See
 #'
 #' @inheritParams predict_neterr
+#' @param z_score Should the values be z-scored? Default is \code{FALSE}.
 #'
 #' @import dplyr
 #' @importFrom tidyr pivot_longer
@@ -13,15 +14,16 @@
 
 compare_covars <- function(redd_df = NULL,
                            species = c("Steelhead", "Spring Chinook"),
-                           num_obs = c("two", "one")) {
-  if(is.null(redd_df)) {
+                           num_obs = c("two", "one"),
+                           z_score = F) {
+  if (is.null(redd_df)) {
     stop("Redd data not supplied.")
   }
 
   species <- match.arg(species)
   num_obs <- match.arg(num_obs)
 
-  if(species == "Steelhead") {
+  if (species == "Steelhead") {
     if (num_obs == "two") {
       net_err_mod <- two_obs_net_mod
       covar_center <- two_obs_covar_center
@@ -33,23 +35,59 @@ compare_covars <- function(redd_df = NULL,
     }
   }
 
-  if(species == "Spring Chinook") {
+  if (species == "Spring Chinook") {
     net_err_mod <- chnk_net_mod
     covar_center <- chnk_covar_center
   }
 
-  redd_df |>
-    dplyr::select(dplyr::any_of(attr(net_err_mod$terms, "term.labels"))) |>
-    sroem::predict_neterr(species = species,
-                          num_obs = num_obs) |>
-    dplyr::select(-net_error_se) |>
-    tidyr::pivot_longer(names_to = "covariate",
-                        values_to = "value") |>
-    dplyr::mutate(source = "Predictive Data") |>
-    dplyr::bind_rows(net_err_mod$data |>
-                       dplyr::select(dplyr::any_of(attr(net_err_mod$terms, "term.labels")),
-                                     net_error) |>
-                       dplyr::mutate(source = "Model Data"))
+  if(!z_score) {
+    comp_df <- net_err_mod$data |>
+      dplyr::select(dplyr::any_of(attr(net_err_mod$terms, "term.labels")),
+                    net_error) |>
+      tidyr::pivot_longer(cols = dplyr::everything(),
+                          names_to = "covariate",
+                          values_to = "value") |>
+      dplyr::mutate(source = "Model Data") |>
+      dplyr::left_join(covar_center |>
+                         rename(covariate = metric)) |>
+      dplyr::mutate(across(value,
+                           ~ if_else(covariate != "net_error",
+                                     . * sd + mean,
+                                     .))) |>
+      dplyr::select(-c(mean, sd)) |>
+      dplyr::bind_rows(redd_df |>
+                  dplyr::select(dplyr::any_of(attr(net_err_mod$terms, "term.labels"))) |>
+                  sroem::predict_neterr(species = species,
+                                        num_obs = num_obs) |>
+                  dplyr::select(-net_error_se) |>
+                  tidyr::pivot_longer(names_to = "covariate",
+                                      values_to = "value") |>
+                  dplyr::mutate(source = "Predictive Data"))
+  } else {
+    comp_df <- net_err_mod$data |>
+      dplyr::select(dplyr::any_of(attr(net_err_mod$terms, "term.labels")),
+                    net_error) |>
+      tidyr::pivot_longer(cols = dplyr::everything(),
+                          names_to = "covariate",
+                          values_to = "value") |>
+      dplyr::mutate(source = "Model Data") |>
+      dplyr::bind_rows(redd_df |>
+                  dplyr::select(dplyr::any_of(attr(net_err_mod$terms, "term.labels"))) |>
+                  sroem::predict_neterr(species = species,
+                                        num_obs = num_obs) |>
+                  dplyr::select(-net_error_se) |>
+                  tidyr::pivot_longer(names_to = "covariate",
+                                      values_to = "value") |>
+                  dplyr::mutate(source = "Predictive Data") |>
+                  dplyr::left_join(covar_center |>
+                                     rename(covariate = metric)) |>
+                  dplyr::mutate(across(value,
+                                       ~ if_else(!is.na(mean),
+                                                 (. - mean) / sd,
+                                                 .))) |>
+                  dplyr::select(-c(mean, sd)))
+  }
 
+  return(comp_df)
 
 }
