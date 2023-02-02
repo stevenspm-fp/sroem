@@ -4,7 +4,7 @@
 #'
 #' @author Kevin See
 #'
-#' @inheritParams predict_neterror
+#' @inheritParams predict_neterr
 #'
 #' @importFrom broom tidy
 #' @return dataframe
