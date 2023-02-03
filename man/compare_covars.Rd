@@ -8,7 +8,8 @@ compare_covars(
   redd_df = NULL,
   species = c("Steelhead", "Spring Chinook"),
   num_obs = c("two", "one"),
-  z_score = F
+  z_score = F,
+  incl_neterr = T
 )
 }
 \arguments{
@@ -19,6 +20,8 @@ compare_covars(
 \item{num_obs}{if species is \code{Steelhead}, which error model to use, for one or two observers? Default is \code{two}.}
 
 \item{z_score}{Should the values be z-scored? Default is \code{FALSE}.}
+
+\item{incl_neterr}{Should the net error values and predictions be included? Default is \code{TRUE}.}
 }
 \value{
 dataframe

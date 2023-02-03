@@ -6,6 +6,7 @@
 #'
 #' @inheritParams predict_neterr
 #' @param z_score Should the values be z-scored? Default is \code{FALSE}.
+#' @param incl_neterr Should the net error values and predictions be included? Default is \code{TRUE}.
 #'
 #' @import dplyr
 #' @importFrom tidyr pivot_longer
@@ -15,7 +16,8 @@
 compare_covars <- function(redd_df = NULL,
                            species = c("Steelhead", "Spring Chinook"),
                            num_obs = c("two", "one"),
-                           z_score = F) {
+                           z_score = F,
+                           incl_neterr = T) {
   if (is.null(redd_df)) {
     stop("Redd data not supplied.")
   }
@@ -40,29 +42,32 @@ compare_covars <- function(redd_df = NULL,
     covar_center <- chnk_covar_center
   }
 
-  if(!z_score) {
+
+  if (!z_score) {
     comp_df <- net_err_mod$data |>
-      dplyr::select(dplyr::any_of(attr(net_err_mod$terms, "term.labels")),
-                    net_error) |>
+      dplyr::select(dplyr::any_of(attr(net_err_mod$terms, "term.labels"))) |>
       tidyr::pivot_longer(cols = dplyr::everything(),
                           names_to = "covariate",
                           values_to = "value") |>
       dplyr::mutate(source = "Model Data") |>
       dplyr::left_join(covar_center |>
-                         rename(covariate = metric)) |>
+                         rename(covariate = metric),
+                       by = "covariate") |>
       dplyr::mutate(across(value,
                            ~ if_else(covariate != "net_error",
                                      . * sd + mean,
                                      .))) |>
       dplyr::select(-c(mean, sd)) |>
       dplyr::bind_rows(redd_df |>
-                  dplyr::select(dplyr::any_of(attr(net_err_mod$terms, "term.labels"))) |>
-                  sroem::predict_neterr(species = species,
-                                        num_obs = num_obs) |>
-                  dplyr::select(-net_error_se) |>
-                  tidyr::pivot_longer(names_to = "covariate",
-                                      values_to = "value") |>
-                  dplyr::mutate(source = "Predictive Data"))
+                         dplyr::select(-contains("net_error")) |>
+                         sroem::predict_neterr(species = species,
+                                               num_obs = num_obs) |>
+                         dplyr::filter(!is.na(net_error)) |>
+                         dplyr::select(dplyr::any_of(attr(net_err_mod$terms, "term.labels"))) |>
+                         tidyr::pivot_longer(cols = dplyr::everything(),
+                                             names_to = "covariate",
+                                             values_to = "value") |>
+                         dplyr::mutate(source = "Predictive Data"))
   } else {
     comp_df <- net_err_mod$data |>
       dplyr::select(dplyr::any_of(attr(net_err_mod$terms, "term.labels")),
@@ -71,22 +76,42 @@ compare_covars <- function(redd_df = NULL,
                           names_to = "covariate",
                           values_to = "value") |>
       dplyr::mutate(source = "Model Data") |>
-      dplyr::bind_rows(redd_df |>
-                  dplyr::select(dplyr::any_of(attr(net_err_mod$terms, "term.labels"))) |>
+      bind_rows(redd_df |>
+                  dplyr::select(-contains("net_error")) |>
                   sroem::predict_neterr(species = species,
                                         num_obs = num_obs) |>
-                  dplyr::select(-net_error_se) |>
-                  tidyr::pivot_longer(names_to = "covariate",
+                  dplyr::filter(!is.na(net_error)) |>
+                  dplyr::select(dplyr::any_of(attr(net_err_mod$terms, "term.labels"))) |>
+                  tidyr::pivot_longer(cols = dplyr::everything(),
+                                      names_to = "covariate",
                                       values_to = "value") |>
                   dplyr::mutate(source = "Predictive Data") |>
                   dplyr::left_join(covar_center |>
-                                     rename(covariate = metric)) |>
+                                     rename(covariate = metric),
+                                   by = "covariate") |>
                   dplyr::mutate(across(value,
                                        ~ if_else(!is.na(mean),
                                                  (. - mean) / sd,
                                                  .))) |>
                   dplyr::select(-c(mean, sd)))
   }
+
+  if(incl_neterr) {
+    comp_df <- comp_df |>
+      bind_rows(net_err_mod$data |>
+                  dplyr::select(net_error) |>
+                  dplyr::mutate(covariate = "net_error",
+                                source = "Model Data")) |>
+      bind_rows(redd_df |>
+                  dplyr::select(-contains("net_error")) |>
+                  sroem::predict_neterr(species = species,
+                                        num_obs = num_obs) |>
+                  dplyr::filter(!is.na(net_error)) |>
+                  dplyr::select(net_error) |>
+                  dplyr::mutate(covariate = "net_error",
+                                source = "Predictive Data"))
+  }
+
 
   return(comp_df)
 
