@@ -99,7 +99,7 @@ compare_covars <- function(redd_df = NULL,
   if(incl_neterr) {
     comp_df <- comp_df |>
       bind_rows(net_err_mod$data |>
-                  dplyr::select(net_error) |>
+                  dplyr::select(value = net_error) |>
                   dplyr::mutate(covariate = "net_error",
                                 source = "Model Data")) |>
       bind_rows(redd_df |>
@@ -107,7 +107,7 @@ compare_covars <- function(redd_df = NULL,
                   sroem::predict_neterr(species = species,
                                         num_obs = num_obs) |>
                   dplyr::filter(!is.na(net_error)) |>
-                  dplyr::select(net_error) |>
+                  dplyr::select(value = net_error) |>
                   dplyr::mutate(covariate = "net_error",
                                 source = "Predictive Data"))
   }
