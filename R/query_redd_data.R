@@ -41,45 +41,48 @@ query_redd_data <- function(
 
   redd_surv_df <- data_list$`Redd Surveys`
 
+  # to-date, only grab experience covariates from Wenatchee data
   if(stringr::str_detect(redd_file_name, "Wenatchee")) {
 
-  # get experience data
-  exp_df <- readxl::read_excel(paste(experience_path,
-                                     experience_file,
-                                     sep = "/"),
-                               skip = 1) |>
-    dplyr::rename(basin = `...1`,
-                  surveyor_name = `...2`,
-                  surveyor_initials = `...3`) |>
-    tidyr::pivot_longer(-c(basin:surveyor_initials),
-                        names_to = "spawn_year",
-                        values_to = "experience") |>
-    dplyr::mutate(
-      dplyr::across(
-        spawn_year,
-        as.numeric
+    # get experience data
+    exp_df <- readxl::read_excel(paste(experience_path,
+                                       experience_file,
+                                       sep = "/"),
+                                 skip = 1) |>
+      dplyr::rename(basin = `...1`,
+                    surveyor_name = `...2`,
+                    surveyor_initials = `...3`,
+                    notes = `...14`) |>
+      dplyr::select(-notes) |>
+      tidyr::pivot_longer(-c(basin:surveyor_initials),
+                          names_to = "spawn_year",
+                          values_to = "experience") |>
+      dplyr::mutate(
+        dplyr::across(
+          spawn_year,
+          as.numeric
+        )
       )
-    )
 
-  redd_surv_df <- redd_surv_df |>
-    dplyr::mutate(
-      dplyr::across(c(surveyor1,
-                      surveyor2),
-                    stringr::str_remove,
-                    "\\ \\([:alpha:]+\\)")) |>
-    dplyr::left_join(exp_df |>
-                       dplyr::select(spawn_year,
-                                     surveyor1 = surveyor_initials,
-                                     exp1 = experience),
-                     by = c("spawn_year", "surveyor1")) |>
-    dplyr::left_join(exp_df |>
-                       dplyr::select(spawn_year,
-                                     surveyor2 = surveyor_initials,
-                                     exp2 = experience),
-                     by = c("spawn_year", "surveyor2")) |>
-    dplyr::rowwise() |>
-    dplyr::mutate(exp_sp_total = mean(c(exp1, exp2), na.rm = T)) |>
-    dplyr::ungroup()
+    redd_surv_df <- redd_surv_df |>
+      dplyr::mutate(
+        dplyr::across(c(surveyor1,
+                        surveyor2),
+                      stringr::str_remove,
+                      "\\ \\([:alpha:]+\\)")) |>
+      dplyr::left_join(exp_df |>
+                         dplyr::select(spawn_year,
+                                       surveyor1 = surveyor_initials,
+                                       exp1 = experience),
+                       by = c("spawn_year", "surveyor1")) |>
+      dplyr::left_join(exp_df |>
+                         dplyr::select(spawn_year,
+                                       surveyor2 = surveyor_initials,
+                                       exp2 = experience),
+                       by = c("spawn_year", "surveyor2")) |>
+      dplyr::rowwise() |>
+      dplyr::mutate(exp_sp_total = mean(c(exp1, exp2), na.rm = T)) |>
+      dplyr::ungroup()
   }
 
   redd_df <- redd_surv_df |>
