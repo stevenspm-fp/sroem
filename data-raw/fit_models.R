@@ -1,7 +1,7 @@
 # Author: Kevin See
 # Purpose: Fit redd observer net error models
 # Created: 1/27/23
-# Last Modified: 1/31/23
+# Last Modified: 3/8/23/23
 # Notes: one observer steelhead data comes from the Wenatchee, two observer steelhead from the Methow
 
 #-----------------------------------------------------------------
@@ -121,6 +121,7 @@ one_obs_net_mod <- glm(net_error ~ mean_depth + mean_thalweg_cv + naive_density_
                        data = one_obs_mod_df,
                        family = gaussian)
 
+
 #-----------------------------------------------------------------
 # Two observer steelhead model
 #-----------------------------------------------------------------
@@ -200,6 +201,55 @@ two_obs_mod_df = two_obs_sthd |>
 two_obs_net_mod <- glm(net_error ~ exp_sp_total_log + mean_discharge + mean_thalweg_cv + naive_density_km,
                        data = two_obs_mod_df,
                        family = gaussian)
+
+#-----------------------------------------------------------------
+# using a random forest model
+#-----------------------------------------------------------------
+library(randomForestSRC)
+
+one_obs_net_rf = rfsrc(formula(one_obs_net_mod),
+                       data = one_obs_sthd |>
+                         select(year:total_features,
+                                net_error,
+                                all_of(attr(one_obs_net_mod$terms, "term.labels"))) |>
+                         as.data.frame(),
+                       forest = T,
+                       importance = T,
+                       membership = T)
+
+two_obs_net_rf = rfsrc(update(formula(two_obs_net_mod), . ~ . - exp_sp_total_log + exp_sp_total),
+                       data = two_obs_sthd |>
+                         select(year:total_features,
+                                net_error,
+                                exp_sp_total,
+                                all_of(attr(two_obs_net_mod$terms, "term.labels"))) |>
+                         as.data.frame(),
+                       forest = T,
+                       importance = T,
+                       membership = T)
+
+# look at partial dependence plots
+plot.variable(one_obs_net_rf,
+              partial = T,
+              smooth.lines = T)
+
+plot.variable(two_obs_net_rf,
+              partial = T,
+              smooth.lines = T)
+
+# look at prediction standard errors
+library(forestError)
+
+findOOBErrors(two_obs_net_rf,
+              X.train = two_obs_net_rf$xvar)
+
+err_df <-
+  quantForestError(two_obs_net_rf,
+                   X.train = two_obs_net_rf$xvar,
+                   X.test = two_obs_net_rf$xvar)
+err_df$estimates |>
+  as_tibble()
+
 
 #-----------------------------------------------------------------
 # Spring Chinook
