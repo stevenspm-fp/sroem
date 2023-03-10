@@ -39,7 +39,14 @@ query_redd_data <- function(
     })
 
 
-  redd_surv_df <- data_list$`Redd Surveys`
+  redd_surv_df <- data_list$`Redd Surveys` |>
+    dplyr::mutate(
+      across(
+        c(survey_type,
+          river),
+        stringr::str_to_title
+      )
+    )
 
   # to-date, only grab experience covariates from Wenatchee data
   if(stringr::str_detect(redd_file_name, "Wenatchee")) {
