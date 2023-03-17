@@ -190,8 +190,8 @@ estimate_redds <- function(redd_df = NULL,
       rowwise() %>%
       mutate(
         redd_est = tot_feat / (err_est + 1),
-        redd_se = msm::deltamethod(~ x1 / x2,
-                                   mean = c(tot_feat, err_est + 1),
+        redd_se = msm::deltamethod(~ x1 / (x2 + 1),
+                                   mean = c(tot_feat, err_est),
                                    cov = diag(c(0, err_se)^2)),
       ) %>%
       ungroup()
