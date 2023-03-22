@@ -32,11 +32,11 @@ query_redd_data <- function(
   data_list <- readxl::excel_sheets(data_file) |>
     as.list() |>
     rlang::set_names() |>
-    purrr::map(.f = function(x) {
+    purrr::map(.f = purrr::quietly(function(x) {
       readxl::read_excel(data_file,
                          sheet = x) |>
         janitor::clean_names()
-    })
+    }))
 
 
   redd_surv_df <- data_list$`Redd Surveys` |>
@@ -52,10 +52,10 @@ query_redd_data <- function(
   if(stringr::str_detect(redd_file_name, "Wenatchee")) {
 
     # get experience data
-    exp_df <- readxl::read_excel(paste(experience_path,
+    exp_df <- suppressMessages(readxl::read_excel(paste(experience_path,
                                        experience_file,
                                        sep = "/"),
-                                 skip = 1) |>
+                                 skip = 1)) |>
       dplyr::rename(basin = `...1`,
                     surveyor_name = `...2`,
                     surveyor_initials = `...3`,

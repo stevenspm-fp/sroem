@@ -97,8 +97,8 @@ predict_neterr <- function(redd_df = NULL,
 
   pred_df <- pred_df %>%
     dplyr::select(-dplyr::any_of(covar_center$metric)) %>%
-    dplyr::left_join(redd_df %>%
-                       dplyr::mutate(data_id = 1:n())) %>%
+    suppressMessages(dplyr::left_join(redd_df %>%
+                                        dplyr::mutate(data_id = 1:n()))) %>%
     dplyr::select(-data_id) %>%
     dplyr::select(dplyr::any_of(names(redd_df)),
                   dplyr::everything())
