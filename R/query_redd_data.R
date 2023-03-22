@@ -36,7 +36,8 @@ query_redd_data <- function(
       readxl::read_excel(data_file,
                          sheet = x) |>
         janitor::clean_names()
-    }))
+    })) |>
+    purrr::map("result")
 
 
   redd_surv_df <- data_list$`Redd Surveys` |>
