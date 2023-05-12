@@ -156,7 +156,9 @@ estimate_redds <- function(redd_df = NULL,
       mutate(
         correct_curve = map_lgl(gauc_list,
                                 .f = function(x) {
-                                  x$beta[3] < 0
+                                  x$beta[1] < 0 &
+                                    x$beta[2] > 0 &
+                                    x$beta[3] < 0
                                 }
         )) %>%
       mutate(
