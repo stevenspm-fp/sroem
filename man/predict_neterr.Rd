@@ -9,8 +9,11 @@ predict_neterr(
   species = c("Steelhead", "Spring Chinook"),
   num_obs = c("two", "one"),
   err_ceiling = T,
-  err_quant = 0.95,
-  err_threshold = NULL
+  err_ceiling_quant = 0.95,
+  err_floor = T,
+  err_floor_quant = 0.05,
+  err_max = NULL,
+  err_min = NULL
 )
 }
 \arguments{
@@ -22,9 +25,15 @@ predict_neterr(
 
 \item{err_ceiling}{should the predictions have a ceiling (maximum value) for the predicted net error? Default is \code{TRUE}.}
 
-\item{err_quant}{if \code{err_ceiling} is \code{TRUE}, and \code{err_threshold} is \code{NULL} (the default), use this quantile of the observed net error in the initial model dataset to set that maximum value of predicted net errors. Default value is \code{0.95} for the 95th quantile.}
+\item{err_ceiling_quant}{if \code{err_ceiling} is \code{TRUE}, and \code{err_max} is \code{NULL} (the default), use this quantile of the observed net error in the initial model dataset to set that maximum value of predicted net errors. Default value is \code{0.95} for the 95th quantile.}
 
-\item{err_threshold}{if \code{err_ceiling} is \code{TRUE}, use this to manually set a maximum value for predicted net errors.}
+\item{err_floor}{should the predictions have a floor (minimum value) for the predicted net error? Default is \code{TRUE}.}
+
+\item{err_floor_quant}{if \code{err_floor} is \code{TRUE}, and \code{err_min} is \code{NULL} (the default), use this quantile of the observed net error in the initial model dataset to set that minimum value of predicted net errors. Default value is \code{0.05} for the 5th quantile.}
+
+\item{err_max}{if \code{err_ceiling} is \code{TRUE}, use this to manually set a maximum value for predicted net errors.}
+
+\item{err_min}{if \code{err_floor} is \code{TRUE}, use this to manually set a minimum value for predicted net errors.}
 }
 \value{
 tibble

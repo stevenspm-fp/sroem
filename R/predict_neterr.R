@@ -8,8 +8,11 @@
 #' @param species which species is being analyzed? This function chooses the appropriate error model for this species. Choices are \code{Steelhead} or \code{Chinook}, with \code{Steelhead} being the default.
 #' @param num_obs if species is \code{Steelhead}, which error model to use, for one or two observers? Default is \code{two}.
 #' @param err_ceiling should the predictions have a ceiling (maximum value) for the predicted net error? Default is \code{TRUE}.
-#' @param err_quant if \code{err_ceiling} is \code{TRUE}, and \code{err_threshold} is \code{NULL} (the default), use this quantile of the observed net error in the initial model dataset to set that maximum value of predicted net errors. Default value is \code{0.95} for the 95th quantile.
-#' @param err_threshold if \code{err_ceiling} is \code{TRUE}, use this to manually set a maximum value for predicted net errors.
+#' @param err_ceiling_quant if \code{err_ceiling} is \code{TRUE}, and \code{err_max} is \code{NULL} (the default), use this quantile of the observed net error in the initial model dataset to set that maximum value of predicted net errors. Default value is \code{0.95} for the 95th quantile.
+#' @param err_floor should the predictions have a floor (minimum value) for the predicted net error? Default is \code{TRUE}.
+#' @param err_floor_quant if \code{err_floor} is \code{TRUE}, and \code{err_min} is \code{NULL} (the default), use this quantile of the observed net error in the initial model dataset to set that minimum value of predicted net errors. Default value is \code{0.05} for the 5th quantile.
+#' @param err_max if \code{err_ceiling} is \code{TRUE}, use this to manually set a maximum value for predicted net errors.
+#' @param err_min if \code{err_floor} is \code{TRUE}, use this to manually set a minimum value for predicted net errors.
 #'
 #' @import dplyr tidyr tibble
 #' @return tibble
@@ -19,8 +22,11 @@ predict_neterr <- function(redd_df = NULL,
                            species = c("Steelhead", "Spring Chinook"),
                            num_obs = c("two", "one"),
                            err_ceiling = T,
-                           err_quant = 0.95,
-                           err_threshold = NULL) {
+                           err_ceiling_quant = 0.95,
+                           err_floor = T,
+                           err_floor_quant = 0.05,
+                           err_max = NULL,
+                           err_min = NULL) {
 
   if(is.null(redd_df)) {
     stop("Redd data not supplied.")
@@ -97,32 +103,54 @@ predict_neterr <- function(redd_df = NULL,
 
   pred_df <- pred_df %>%
     dplyr::select(-dplyr::any_of(covar_center$metric)) %>%
-    suppressMessages(dplyr::left_join(redd_df %>%
-                                        dplyr::mutate(data_id = 1:n()))) %>%
+    dplyr::left_join(redd_df %>%
+                       dplyr::mutate(data_id = 1:n())) %>%
     dplyr::select(-data_id) %>%
     dplyr::select(dplyr::any_of(names(redd_df)),
-                  dplyr::everything())
+                  dplyr::everything()) %>%
+    suppressMessages()
 
 
 
   # check if any predictions are above threshold
   if(err_ceiling) {
     # set threshold
-    if(!is.null(err_threshold)) {
-      err_thres <- err_threshold
+    if(!is.null(err_max)) {
+      err_thres_max <- err_max
     } else {
-      err_thres <- quantile(net_err_mod$y, err_quant)
+      err_thres_max <- quantile(net_err_mod$y, err_ceiling_quant)
     }
 
     # shrink any predicted values to the threshold, if they exceed it
     pred_df <- pred_df |>
       dplyr::mutate(
-        exceed_ceiling = dplyr::if_else(net_error > err_thres,
+        exceed_ceiling = dplyr::if_else(net_error > err_thres_max,
                                         T, F),
         dplyr::across(
           net_error,
-          ~ dplyr::if_else(. > err_thres,
-                           err_thres,
+          ~ dplyr::if_else(. > err_thres_max,
+                           err_thres_max,
+                           .)))
+  }
+
+  # check if any predictions are below threshold
+  if(err_floor) {
+    # set threshold
+    if(!is.null(err_min)) {
+      err_thres_min <- err_min
+    } else {
+      err_thres_min <- quantile(net_err_mod$y, err_floor_quant)
+    }
+
+    # shrink any predicted values to the threshold, if they exceed it
+    pred_df <- pred_df |>
+      dplyr::mutate(
+        exceed_floor = dplyr::if_else(net_error < err_thres_min,
+                                        T, F),
+        dplyr::across(
+          net_error,
+          ~ dplyr::if_else(. < err_thres_min,
+                           err_thres_min,
                            .)))
   }
 
