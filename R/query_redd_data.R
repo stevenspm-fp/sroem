@@ -7,7 +7,7 @@
 #' @param redd_file_path file path to redd data file
 #' @param redd_file_name name of Excel file containing redd data in a very particular format
 #' @param experience_path file path to experience file
-#' @param experience_file name of Excel file containing experience data in a very particular format
+#' @param experience_file_name name of Excel file containing experience data in a very particular format
 #' @param query_year which year or years should be included in this query?
 #'
 #' @import rlang purrr dplyr janitor lubridate readxl forcats stringr dataRetrieval
@@ -18,7 +18,7 @@ query_redd_data <- function(
   redd_file_path = "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/inputs/Redd Data",
   redd_file_name = "Wenatchee_Redd_Surveys.xlsx",
   experience_path = "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/inputs/Experience",
-  experience_file = "Master_STHD.Experience_2.13.2023.MH.xlsx",
+  experience_file_name = "Master_STHD.Experience_2.13.2023.MH.xlsx",
   query_year = lubridate::year(lubridate::today()) - 1) {
 
   data_file = paste(redd_file_path,
@@ -54,7 +54,7 @@ query_redd_data <- function(
 
     # get experience data
     exp_df <- suppressMessages(readxl::read_excel(paste(experience_path,
-                                       experience_file,
+                                                        experience_file_name,
                                        sep = "/"),
                                  skip = 1)) |>
       dplyr::rename(basin = `...1`,

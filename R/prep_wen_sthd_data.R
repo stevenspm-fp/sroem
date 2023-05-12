@@ -27,7 +27,7 @@ prep_wen_sthd_data <- function(
   redd_file_path = "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/inputs/Redd Data",
   redd_file_name = "Wenatchee_Redd_Surveys.xlsx",
   experience_path = "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/inputs/Experience",
-  experience_file = "Master_STHD.Experience_2.13.2023.MH.xlsx",
+  experience_file_name = "Master_STHD.Experience_2.13.2023.MH.xlsx",
   dabom_file_path = "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/estimates",
   dabom_file_name = "UC_STHD_Model_Output.xlsx",
   brood_file_path = "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/inputs/Bio Data/Sex and Origin PRD-Brood Comparison Data",
@@ -48,7 +48,7 @@ prep_wen_sthd_data <- function(
   redd_df_all <- query_redd_data(redd_file_path,
                                  redd_file_name,
                                  experience_path,
-                                 experience_file,
+                                 experience_file_name,
                                  query_year = query_year)
 
   if(!is.null(redd_df_all)) {

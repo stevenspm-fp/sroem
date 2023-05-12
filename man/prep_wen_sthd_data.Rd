@@ -10,7 +10,7 @@ prep_wen_sthd_data(
   redd_file_name = "Wenatchee_Redd_Surveys.xlsx",
   experience_path =
     "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/inputs/Experience",
-  experience_file = "Master_STHD.Experience_2.13.2023.MH.xlsx",
+  experience_file_name = "Master_STHD.Experience_2.13.2023.MH.xlsx",
   dabom_file_path =
     "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/estimates",
   dabom_file_name = "UC_STHD_Model_Output.xlsx",
@@ -35,7 +35,7 @@ prep_wen_sthd_data(
 
 \item{experience_path}{file path to experience file}
 
-\item{experience_file}{name of Excel file containing experience data in a very particular format}
+\item{experience_file_name}{name of Excel file containing experience data in a very particular format}
 
 \item{dabom_file_path}{file path to summary results from DABOM}
 
