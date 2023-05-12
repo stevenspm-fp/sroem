@@ -139,7 +139,7 @@ query_redd_data <- function(
     return(NULL)
   }
 
-  message("Querying USGS for discharge data\n")
+  message("\t Querying USGS for discharge data\n")
 
   # query USGS for mean daily discharge data
   discharge_df <- redd_df |>
