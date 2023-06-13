@@ -16,4 +16,5 @@ Depends:
 LazyData: true
 Imports: 
     broom,
+    dplyr,
     tidyr

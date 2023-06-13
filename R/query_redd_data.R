@@ -5,9 +5,9 @@
 #' @author Kevin See
 #'
 #' @param redd_file_path file path to redd data file
-#' @param redd_file_name name of Excel file containing redd data in a very particular format
+#' @param redd_file_name name of Excel file containing redd data in a very particular format, including sheets labeled "Reach Length", "Thalweg CV", "Discharge Gages" and "Redd Surveys".
 #' @param experience_path file path to experience file
-#' @param experience_file_name name of Excel file containing experience data in a very particular format
+#' @param experience_file_name name of Excel file containing experience data in a very particular format, with a sheet labeled "Experience"
 #' @param query_year which year or years should be included in this query?
 #'
 #' @import rlang purrr dplyr janitor lubridate readxl forcats stringr dataRetrieval
@@ -17,8 +17,8 @@
 query_redd_data <- function(
   redd_file_path = "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/inputs/Redd Data",
   redd_file_name = "Wenatchee_Redd_Surveys.xlsx",
-  experience_path = "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/inputs/Experience",
-  experience_file_name = "Master_STHD.Experience_2.13.2023.MH.xlsx",
+  experience_path = redd_file_path,
+  experience_file_name = redd_file_name,
   query_year = lubridate::year(lubridate::today()) - 1) {
 
   data_file = paste(redd_file_path,
@@ -55,13 +55,12 @@ query_redd_data <- function(
     # get experience data
     exp_df <- suppressMessages(readxl::read_excel(paste(experience_path,
                                                         experience_file_name,
-                                       sep = "/"),
-                                 skip = 1)) |>
+                                                        sep = "/"),
+                                                  sheet = "Experience",
+                                                  skip = 1)) |>
       dplyr::rename(basin = `...1`,
                     surveyor_name = `...2`,
-                    surveyor_initials = `...3`,
-                    notes = `...14`) |>
-      dplyr::select(-notes) |>
+                    surveyor_initials = `...3`) |>
       tidyr::pivot_longer(-c(basin:surveyor_initials),
                           names_to = "spawn_year",
                           values_to = "experience") |>
@@ -74,10 +73,11 @@ query_redd_data <- function(
 
     redd_surv_df <- redd_surv_df |>
       dplyr::mutate(
-        dplyr::across(c(surveyor1,
-                        surveyor2),
-                      stringr::str_remove,
-                      "\\ \\([:alpha:]+\\)")) |>
+        dplyr::across(
+          c(surveyor1,
+            surveyor2),
+          ~ stringr::str_remove(.,
+                                "\\ \\([:alpha:]+\\)"))) |>
       dplyr::left_join(exp_df |>
                          dplyr::select(spawn_year,
                                        surveyor1 = surveyor_initials,
@@ -95,10 +95,12 @@ query_redd_data <- function(
 
   redd_df <- redd_surv_df |>
     dplyr::left_join(data_list$`Reach Length` |>
-                       dplyr::select(river,
+                       dplyr::group_by(river,
                                      reach,
-                                     type, index,
-                                     length_km),
+                                     type, index) |>
+                       dplyr::summarize(
+                         dplyr::across(length_km,
+                                       ~ sum(.))),
                      by = c("river", "reach", "index")) |>
     dplyr::left_join(data_list$`Thalweg CV` |>
                        dplyr::select(river,

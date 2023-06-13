@@ -14,8 +14,8 @@
 prep_met_sthd_data <- function(
   redd_file_path = "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/inputs/Redd Data",
   redd_file_name = "Methow_Redd_Surveys.xlsx",
-  experience_path = "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/inputs/Experience",
-  experience_file_name = "Master_STHD.Experience_2.13.2023.MH.xlsx",
+  experience_path = redd_file_path,
+  experience_file_name = redd_file_name,
   dabom_file_path = "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/estimates",
   dabom_file_name = "UC_STHD_Model_Output.xlsx",
   removal_file_path = "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/inputs/Fish Removals/Archived",

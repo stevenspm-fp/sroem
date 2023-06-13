@@ -8,20 +8,19 @@ query_redd_data(
   redd_file_path =
     "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/inputs/Redd Data",
   redd_file_name = "Wenatchee_Redd_Surveys.xlsx",
-  experience_path =
-    "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/inputs/Experience",
-  experience_file_name = "Master_STHD.Experience_2.13.2023.MH.xlsx",
+  experience_path = redd_file_path,
+  experience_file_name = redd_file_name,
   query_year = lubridate::year(lubridate::today()) - 1
 )
 }
 \arguments{
 \item{redd_file_path}{file path to redd data file}
 
-\item{redd_file_name}{name of Excel file containing redd data in a very particular format}
+\item{redd_file_name}{name of Excel file containing redd data in a very particular format, including sheets labeled "Reach Length", "Thalweg CV", "Discharge Gages" and "Redd Surveys".}
 
 \item{experience_path}{file path to experience file}
 
-\item{experience_file_name}{name of Excel file containing experience data in a very particular format}
+\item{experience_file_name}{name of Excel file containing experience data in a very particular format, with a sheet labeled "Experience"}
 
 \item{query_year}{which year or years should be included in this query?}
 }
