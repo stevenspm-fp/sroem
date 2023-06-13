@@ -59,8 +59,9 @@ query_redd_data <- function(
                                                   sheet = "Experience",
                                                   skip = 1)) |>
       dplyr::rename(basin = `...1`,
-                    surveyor_name = `...2`,
-                    surveyor_initials = `...3`) |>
+                    agency = `...2`,
+                    surveyor_name = `...3`,
+                    surveyor_initials = `...4`) |>
       tidyr::pivot_longer(-c(basin:surveyor_initials),
                           names_to = "spawn_year",
                           values_to = "experience") |>
