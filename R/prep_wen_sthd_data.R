@@ -12,6 +12,7 @@
 #' @param removal_file_path file path to removal data file
 #' @param removal_file_name name of Excel file containing removal data in a very particular format
 #' @param n_observers how many observers / boats were used on each survey?
+#' @param phos_data should the data used to estimate pHOS come from PIT `tags` or `escapement` estimates? Default is `tags`.
 #' @param save_rda should the data that's returned by saved as an .RData object (`TRUE`)? Default value of `FALSE` loads all the returned objects into the Global Environment.
 #' @param save_file_path if `save_rda` is `TRUE`, where should the .RData object be saved?
 #' @param save_file_name if `save_rda` is `TRUE`, what should the file name be? Should end in ".rda".
@@ -36,6 +37,8 @@ prep_wen_sthd_data <- function(
   removal_file_name = "Master_STHD_Removals_2.18.23.MH.xlsx",
   n_observers = "two",
   query_year = lubridate::year(lubridate::today()) - 1,
+  phos_data = c("tags",
+                "escapement"),
   save_rda = F,
   save_by_year = T,
   save_file_path = here::here("analysis/data/derived_data"),
@@ -43,6 +46,8 @@ prep_wen_sthd_data <- function(
 ) {
 
   message("\t Gathering redd data.\n")
+
+  phos_data = match.arg(phos_data)
 
   # load data for selected years
   redd_df_all <- query_redd_data(redd_file_path,
@@ -473,6 +478,46 @@ prep_wen_sthd_data <- function(
       dplyr::across(se,
                     ~ sqrt(sum(.^2))),
       .groups = "drop")
+
+  #-----------------------------------------------------------------
+  # use escapement estimates rather than tags to estimate pHOS
+  if(phos_data == "escapement") {
+    escp_phos <-
+      escp_wen_all |>
+      pivot_wider(names_from = origin,
+                  values_from = c(estimate, se)) |>
+      rowwise() |>
+      mutate(phos = estimate_Hatchery / (estimate_Hatchery + estimate_Natural),
+             phos_se = msm::deltamethod(~ x1 / (x1 + x2),
+                                        mean = c(estimate_Hatchery,
+                                                 estimate_Natural),
+                                        cov = diag(c(se_Hatchery,
+                                                     se_Natural)^2))) |>
+      ungroup()
+
+    fpr_all <-
+      fpr_all |>
+      left_join(escp_phos |>
+                  select(spawn_year,
+                         location,
+                         phos2 = phos,
+                         phos_se2 = phos_se)) |>
+      mutate(
+        across(
+          phos,
+          ~ if_else(!is.na(phos2),
+                    phos2,
+                    .)),
+        across(
+          phos_se,
+          ~ if_else(!is.na(phos_se2),
+                    phos_se2,
+                    .))
+      ) |>
+      select(-c(phos2,
+                phos_se2))
+
+  }
 
   #-----------------------------------------------------------------
   # save

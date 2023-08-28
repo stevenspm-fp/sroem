@@ -21,6 +21,7 @@ prep_wen_sthd_data(
   removal_file_name = "Master_STHD_Removals_2.18.23.MH.xlsx",
   n_observers = "two",
   query_year = lubridate::year(lubridate::today()) - 1,
+  phos_data = c("tags", "escapement"),
   save_rda = F,
   save_by_year = T,
   save_file_path = here::here("analysis/data/derived_data"),
@@ -51,6 +52,8 @@ prep_wen_sthd_data(
 \item{n_observers}{how many observers / boats were used on each survey?}
 
 \item{query_year}{which year or years should be included in this query?}
+
+\item{phos_data}{should the data used to estimate pHOS come from PIT \code{tags} or \code{escapement} estimates? Default is \code{tags}.}
 
 \item{save_rda}{should the data that's returned by saved as an .RData object (\code{TRUE})? Default value of \code{FALSE} loads all the returned objects into the Global Environment.}
 
