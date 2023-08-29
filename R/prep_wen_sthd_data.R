@@ -5,19 +5,19 @@
 #' @author Kevin See
 #'
 #' @inheritParams query_redd_data
-#' @param dabom_file_path file path to summary results from DABOM
-#' @param dabom_file_name name of Excel file containing DABOM estimates in a very particular format
+#' @inheritParams query_dabom_results
 #' @param brood_file_path file path to broodstock collection file
 #' @param brood_file_name name of Excel file containing broodstock collection data in a very particular format
 #' @param removal_file_path file path to removal data file
 #' @param removal_file_name name of Excel file containing removal data in a very particular format
 #' @param n_observers how many observers / boats were used on each survey?
+#' @param phos_data should the data used to estimate pHOS come from PIT `tags` or `escapement` estimates? Default is `tags`.
 #' @param save_rda should the data that's returned by saved as an .RData object (`TRUE`)? Default value of `FALSE` loads all the returned objects into the Global Environment.
 #' @param save_file_path if `save_rda` is `TRUE`, where should the .RData object be saved?
 #' @param save_file_name if `save_rda` is `TRUE`, what should the file name be? Should end in ".rda".
 #'
 #'
-#' @import rlang purrr dplyr readxl readr janitor tidyr lubridate
+#' @import rlang purrr dplyr readxl readr janitor tidyr lubridate coda
 #' @importFrom DescTools BinomCI
 #' @importFrom msm deltamethod
 #' @return either saves an .Rdata object with output for a given year, or loads those results into global environment.
@@ -28,14 +28,16 @@ prep_wen_sthd_data <- function(
   redd_file_name = "Wenatchee_Redd_Surveys.xlsx",
   experience_path = redd_file_path,
   experience_file_name = redd_file_name,
-  dabom_file_path = "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/estimates",
-  dabom_file_name = "UC_STHD_Model_Output.xlsx",
+  dabom_file_path = "O:Documents/Git/MyProjects/DabomPriestRapidsSthd/analysis/data/derived_data/estimates",
+  dabom_file_name = "UC_Sthd_DABOM_",
   brood_file_path = "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/inputs/Bio Data/Sex and Origin PRD-Brood Comparison Data",
   brood_file_name = "STHD UC Brood Collections_2011 to current.xlsx",
   removal_file_path = "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/inputs/Fish Removals",
   removal_file_name = "Master_STHD_Removals_2.18.23.MH.xlsx",
   n_observers = "two",
   query_year = lubridate::year(lubridate::today()) - 1,
+  phos_data = c("tags",
+                "escapement"),
   save_rda = F,
   save_by_year = T,
   save_file_path = here::here("analysis/data/derived_data"),
@@ -43,6 +45,8 @@ prep_wen_sthd_data <- function(
 ) {
 
   message("\t Gathering redd data.\n")
+
+  phos_data = match.arg(phos_data)
 
   # load data for selected years
   redd_df_all <- query_redd_data(redd_file_path,
@@ -71,14 +75,28 @@ prep_wen_sthd_data <- function(
 
   message("\t Pulling PIT tag data.\n\n")
 
+  dabom_df <- tibble(spawn_year = query_year,
+                     dam_nm = if_else(spawn_year %in% c(2011:2015, 2018),
+                                      "PriestRapids",
+                                      "RockIsland"))
+
   # get info on tags detected somewhere in the Wenatchee
-  wen_tags_all <- readxl::read_excel(paste(dabom_file_path,
-                                           dabom_file_name,
-                                           sep = "/"),
-                                     sheet = "Tag Summary") |>
-    janitor::clean_names() |>
-    dplyr::filter(str_detect(path, "LWE"),
-                  spawn_year %in% query_year) |>
+  all_tags <- dabom_df |>
+    dplyr::mutate(tag_summ = purrr::map2(spawn_year,
+                                         dam_nm,
+                                         .f = function(yr, dam_nm) {
+                                           sroem::query_dabom_results(dabom_file_path = dabom_file_path,
+                                                                      dabom_dam_nm = dam_nm,
+                                                                      dabom_file_name = dabom_file_name,
+                                                                      query_year = yr,
+                                                                      result_type = "tag_summ")
+                                         })) |>
+    select(-dam_nm) |>
+    tidyr::unnest(tag_summ)
+
+  wen_tags_all <-
+    all_tags |>
+    dplyr::filter(str_detect(path, "LWE")) |>
     dplyr::mutate(location = dplyr::if_else(spawn_node %in% c('TUM', 'UWE'),
                                             'Above Tumwater',
                                             dplyr::if_else(str_detect(spawn_node, "^LWE"),
@@ -91,13 +109,13 @@ prep_wen_sthd_data <- function(
                                                                                                         "Peshastin",
                                                                                                         "Other Tributaries"))))),
                   dplyr::across(location,
-                                factor,
-                                levels = c("Below Tumwater",
-                                           'Above Tumwater',
-                                           "Peshastin",
-                                           "Nason",
-                                           "Chiwawa",
-                                           'Other Tributaries'))) |>
+                                ~ factor(.,
+                                         levels = c("Below Tumwater",
+                                                    'Above Tumwater',
+                                                    "Peshastin",
+                                                    "Nason",
+                                                    "Chiwawa",
+                                                    'Other Tributaries')))) |>
     dplyr::select(spawn_year,
                   tag_code,
                   location,
@@ -133,71 +151,48 @@ prep_wen_sthd_data <- function(
   # the excel file contains rounded numbers, so re-calculate
   # various statistics for use in analyses
   # estimate error rate for each sex
-  sex_err_rate <- readxl::read_excel(paste(dabom_file_path,
-                                           dabom_file_name,
-                                           sep = "/"),
-                                     sheet = "Tag Summary") |>
+  sex_err_rate <-
+    all_tags |>
+    dplyr::select(spawn_year,
+                  tag_code,
+                  sex_field = sex) |>
+    dplyr::inner_join(readxl::read_excel(paste(brood_file_path,
+                                               brood_file_name,
+                                               sep = "/"),
+                                         sheet = "Brood Collected_PIT Tagged Only") |>
+                        janitor::clean_names() |>
+                        dplyr::rename(tag_code = recaptured_pit) |>
+                        dplyr::select(spawn_year,
+                                      tag_code,
+                                      sex_final) |>
+                        dplyr::distinct(),
+                      by = c("spawn_year",
+                             "tag_code")) |>
+    dplyr::filter(!is.na(sex_final),
+                  !is.na(sex_field)) |>
+    dplyr::mutate(agree = dplyr::if_else(sex_field == sex_final,
+                                         T, F)) |>
+    dplyr::group_by(spawn_year,
+                    sex = sex_field) |>
+    dplyr::summarize(n_tags = dplyr::n_distinct(tag_code),
+                     n_true = sum(agree),
+                     n_false = sum(!agree),
+                     .groups = "drop") |>
+    dplyr::mutate(binom_ci = map2(n_false,
+                                  n_tags,
+                                  .f = function(x, y) {
+                                    DescTools::BinomCI(x, y) |>
+                                      as_tibble()
+                                  })) |>
+    tidyr::unnest(binom_ci) |>
     janitor::clean_names() |>
-    select(spawn_year,
-           tag_code,
-           sex_field = sex) |>
-    inner_join(read_excel(paste(brood_file_path,
-                                brood_file_name,
-                                sep = "/"),
-                          sheet = "Brood Collected_PIT Tagged Only") |>
-                 clean_names() |>
-                 rename(tag_code = recaptured_pit) |>
-                 select(spawn_year,
-                        tag_code,
-                        sex_final) |>
-                 distinct(),
-               by = c("spawn_year",
-                      "tag_code")) |>
-    filter(!is.na(sex_final),
-           !is.na(sex_field)) |>
-    mutate(agree = if_else(sex_field == sex_final,
-                           T, F)) |>
-    group_by(spawn_year,
-             sex = sex_field) |>
-    summarize(n_tags = n_distinct(tag_code),
-              n_true = sum(agree),
-              n_false = sum(!agree),
-              .groups = "drop") |>
-    mutate(binom_ci = map2(n_false,
-                           n_tags,
-                           .f = function(x, y) {
-                             DescTools::BinomCI(x, y) |>
-                               as_tibble()
-                           })) |>
-    unnest(binom_ci) |>
-    clean_names() |>
-    rename(perc_false = est,
-           lowerci = lwr_ci,
-           upperci = upr_ci) |>
-    mutate(perc_se = sqrt((perc_false * (1 - perc_false)) / n_tags)) |>
-    relocate(perc_se,
-             .after = "perc_false")
+    dplyr::rename(perc_false = est,
+                  lowerci = lwr_ci,
+                  upperci = upr_ci) |>
+    dplyr::mutate(perc_se = sqrt((perc_false * (1 - perc_false)) / n_tags)) |>
+    dplyr::relocate(perc_se,
+                    .after = "perc_false")
 
-  #
-  #
-  # sex_err_rate <- readxl::read_excel(paste(dabom_file_path,
-  #                                          dabom_file_name,
-  #                                          sep = "/"),
-  #                                    sheet = "Sex Error Rates") |>
-  #   janitor::clean_names() |>
-  #   dplyr::select(spawn_year:n_false) |>
-  #   dplyr::filter(spawn_year %in% query_year) |>
-  #   dplyr::rowwise() |>
-  #   dplyr::mutate(binom_ci = map2(n_false,
-  #                                 n_tags,
-  #                                 .f = function(x, y) {
-  #                                   DescTools::BinomCI(x, y) |>
-  #                                     as_tibble()
-  #                                 })) |>
-  #   tidyr::unnest(binom_ci) |>
-  #   janitor::clean_names() |>
-  #   dplyr::rename(perc_false = est) |>
-  #   dplyr::mutate(perc_se = sqrt((perc_false * (1 - perc_false)) / n_tags))
 
   adj_fpr <- fpr_all |>
     dplyr::select(spawn_year,
@@ -358,23 +353,23 @@ prep_wen_sthd_data <- function(
                         .before = "removed") |>
         dplyr::filter(origin %in% c("h", "w")) |>
         dplyr::mutate(
-          across(
+          dplyr::across(
             source,
-            str_remove,
-            "_h$"),
-          across(
+            ~ stringr::str_remove(.,
+                                  "_h$")),
+          dplyr::across(
             source,
-            str_remove,
-            "_w$"),
-          across(
+            ~ stringr::str_remove(.,
+                                  "_w$")),
+          dplyr::across(
             source,
-            ~ str_to_title(str_replace_all(., "_", " "))
+            ~ stringr::str_to_title(stringr::str_replace_all(., "_", " "))
           ),
-          across(
+          dplyr::across(
             origin,
-            recode,
-            "h" = "Hatchery",
-            "w" = "Natural"
+            ~ dplyr::recode(.,
+                            "h" = "Hatchery",
+                            "w" = "Natural")
           )
         ) |>
         dplyr::filter(spawn_year %in% query_year,
@@ -392,13 +387,20 @@ prep_wen_sthd_data <- function(
 
   message("\t Gathering PIT escapement estimates.\n")
 
-  all_escp = readxl::read_excel(paste(dabom_file_path,
-                                      dabom_file_name,
-                                      sep = "/"),
-                                sheet = "Run Escp All Locations") |>
-    janitor::clean_names() |>
-    dplyr::filter(spawn_year %in% query_year,
-                  location %in% c('ICL',
+  all_escp <- dabom_df |>
+    dplyr::mutate(escp = purrr::map(spawn_year,
+                                    dam_nm,
+                                    .f = function(yr, dam_nm) {
+                                      sroem::query_dabom_results(dabom_file_path = dabom_file_path,
+                                                                 dabom_dam_nm = dam_nm,
+                                                                 dabom_file_name = dabom_file_name,
+                                                                 query_year = yr,
+                                                                 result_type = "escape_summ")
+                                    })) |>
+    select(-c(spawn_year,
+              dam_nm)) |>
+    tidyr::unnest(escp) |>
+    dplyr::filter(location %in% c('ICL',
                                   'PES',
                                   'MCL',
                                   'CHM',
@@ -410,7 +412,14 @@ prep_wen_sthd_data <- function(
                                   'LWE',
                                   'LWE_bb',
                                   'TUM_bb',
-                                  'UWE_bb'))
+                                  'UWE_bb')) |>
+    dplyr::select(spawn_year,
+                  origin,
+                  location,
+                  estimate = median,
+                  se = sd,
+                  lci = lowerCI,
+                  uci = upperCI)
 
   # pull out estimates of tributary spawners from DABOM
   trib_spawners_all = all_escp |>
@@ -427,52 +436,157 @@ prep_wen_sthd_data <- function(
                   origin,
                   location,
                   spawners = estimate,
-                  spawners_se = se) |>
+                  spawners_se = se,
+                  lci,
+                  uci) |>
     dplyr::mutate(
-      dplyr::across(origin,
-                    recode,
-                    "W" = "Natural",
-                    "H" = "Hatchery"),
-      dplyr::across(location,
-                    recode,
-                    'CHL' = 'Chiwawa',
-                    'CHM' = 'Chumstick',
-                    'CHW' = 'Chiwaukum',
-                    'ICL' = 'Icicle',
-                    'LWN' = 'Little Wenatchee',
-                    'MCL' = 'Mission',
-                    'NAL' = 'Nason',
-                    'PES' = 'Peshastin',
-                    'WTL' = 'White River')) |>
+      dplyr::across(
+        origin,
+        ~ dplyr::recode(.,
+                        "W" = "Natural",
+                        "H" = "Hatchery")),
+      dplyr::across(
+        location,
+        ~ dplyr::recode(.,
+                        'CHL' = 'Chiwawa',
+                        'CHM' = 'Chumstick',
+                        'CHW' = 'Chiwaukum',
+                        'ICL' = 'Icicle',
+                        'LWN' = 'Little Wenatchee',
+                        'MCL' = 'Mission',
+                        'NAL' = 'Nason',
+                        'PES' = 'Peshastin',
+                        'WTL' = 'White River'))) |>
     dplyr::arrange(location, origin)
 
   # pull out mainstem escapement estimates
-  escp_wen_all = all_escp |>
+  # escp_wen_all = all_escp |>
+  #   dplyr::filter(location %in% c('LWE',
+  #                                 'LWE_bb',
+  #                                 'TUM_bb',
+  #                                 'UWE_bb')) |>
+  #   dplyr::mutate(
+  #     dplyr::across(
+  #       location,
+  #       ~ dplyr::recode(.,
+  #                       'LWE' = 'Wen_all',
+  #                       'LWE_bb' = 'Below Tumwater',
+  #                       'TUM_bb' = "Above Tumwater",
+  #                       'UWE_bb' = 'Above Tumwater'))) |>
+  #   dplyr::mutate(
+  #     dplyr::across(
+  #       origin,
+  #       ~ dplyr::recode(.,
+  #                       "W" = "Natural",
+  #                       "H" = "Hatchery"))) |>
+  #   dplyr::group_by(spawn_year,
+  #                   location,
+  #                   origin) |>
+  #   dplyr::summarise(
+  #     dplyr::across(estimate,
+  #                   sum),
+  #     dplyr::across(se,
+  #                   ~ sqrt(sum(.^2))),
+  #     .groups = "drop")
+
+
+  escp_wen_all <-
+    dabom_df |>
+    dplyr::mutate(post = purrr::map2(spawn_year,
+                                     dam_nm,
+                                     .f = function(yr, dam_nm) {
+                                       sroem::query_dabom_results(dabom_file_path = dabom_file_path,
+                                                                  dabom_dam_nm = dam_nm,
+                                                                  dabom_file_name = dabom_file_name,
+                                                                  query_year = yr,
+                                                                  result_type = "escape_post")
+                                     })) |>
+    select(-dam_nm) |>
+    tidyr::unnest(post) |>
+    dplyr::rename(location = param) |>
     dplyr::filter(location %in% c('LWE',
                                   'LWE_bb',
                                   'TUM_bb',
                                   'UWE_bb')) |>
     dplyr::mutate(
-      dplyr::across(location,
-                    recode,
-                    'LWE' = 'Wen_all',
-                    'LWE_bb' = 'Below Tumwater',
-                    'TUM_bb' = "Above Tumwater",
-                    'UWE_bb' = 'Above Tumwater')) |>
+      dplyr::across(
+        location,
+        ~ dplyr::recode(.,
+                        'LWE' = 'Wen_all',
+                        'LWE_bb' = 'Below Tumwater',
+                        'TUM_bb' = "Above Tumwater",
+                        'UWE_bb' = 'Above Tumwater'))) |>
     dplyr::mutate(
-      dplyr::across(origin,
-                    recode,
-                    "W" = "Natural",
-                    "H" = "Hatchery")) |>
+      dplyr::across(
+        origin,
+        ~ dplyr::recode(.,
+                        "W" = "Natural",
+                        "H" = "Hatchery"))) |>
+    dplyr::group_by(spawn_year,
+                    location,
+                    origin,
+                    chain,
+                    iter) |>
+    dplyr::summarise(
+      dplyr::across(escp,
+                    sum),
+      .groups = "drop") |>
     dplyr::group_by(spawn_year,
                     location,
                     origin) |>
-    dplyr::summarise(
-      dplyr::across(estimate,
-                    sum),
-      dplyr::across(se,
-                    ~ sqrt(sum(.^2))),
-      .groups = "drop")
+    summarize(estimate = median(escp),
+              se = sd(escp),
+              lci = coda::HPDinterval(coda::as.mcmc(escp))[,1],
+              uci = coda::HPDinterval(coda::as.mcmc(escp))[,2],
+              .groups = "drop")
+
+
+
+  #-----------------------------------------------------------------
+  # use escapement estimates rather than tags to estimate pHOS
+  if(phos_data == "escapement") {
+    escp_phos <-
+      escp_wen_all |>
+      select(spawn_year,
+             location,
+             origin,
+             estimate,
+             se) |>
+      pivot_wider(names_from = origin,
+                  values_from = c(estimate, se)) |>
+      rowwise() |>
+      mutate(phos = estimate_Hatchery / (estimate_Hatchery + estimate_Natural),
+             phos_se = msm::deltamethod(~ x1 / (x1 + x2),
+                                        mean = c(estimate_Hatchery,
+                                                 estimate_Natural),
+                                        cov = diag(c(se_Hatchery,
+                                                     se_Natural)^2))) |>
+      ungroup()
+
+    fpr_all <-
+      fpr_all |>
+      left_join(escp_phos |>
+                  select(spawn_year,
+                         location,
+                         phos2 = phos,
+                         phos_se2 = phos_se),
+                by = join_by(spawn_year, location)) |>
+      mutate(
+        across(
+          phos,
+          ~ if_else(!is.na(phos2),
+                    phos2,
+                    .)),
+        across(
+          phos_se,
+          ~ if_else(!is.na(phos_se2),
+                    phos_se2,
+                    .))
+      ) |>
+      select(-c(phos2,
+                phos_se2))
+
+  }
 
   #-----------------------------------------------------------------
   # save

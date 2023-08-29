@@ -11,8 +11,8 @@ prep_wen_sthd_data(
   experience_path = redd_file_path,
   experience_file_name = redd_file_name,
   dabom_file_path =
-    "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/estimates",
-  dabom_file_name = "UC_STHD_Model_Output.xlsx",
+    "O:Documents/Git/MyProjects/DabomPriestRapidsSthd/analysis/data/derived_data/estimates",
+  dabom_file_name = "UC_Sthd_DABOM_",
   brood_file_path =
     "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/inputs/Bio Data/Sex and Origin PRD-Brood Comparison Data",
   brood_file_name = "STHD UC Brood Collections_2011 to current.xlsx",
@@ -21,6 +21,7 @@ prep_wen_sthd_data(
   removal_file_name = "Master_STHD_Removals_2.18.23.MH.xlsx",
   n_observers = "two",
   query_year = lubridate::year(lubridate::today()) - 1,
+  phos_data = c("tags", "escapement"),
   save_rda = F,
   save_by_year = T,
   save_file_path = here::here("analysis/data/derived_data"),
@@ -36,9 +37,9 @@ prep_wen_sthd_data(
 
 \item{experience_file_name}{name of Excel file containing experience data in a very particular format, with a sheet labeled "Experience"}
 
-\item{dabom_file_path}{file path to summary results from DABOM}
+\item{dabom_file_path}{file path to DABOM results. Should contain at least two folders names \code{RockIsland} and \code{PriestRapids}.}
 
-\item{dabom_file_name}{name of Excel file containing DABOM estimates in a very particular format}
+\item{dabom_file_name}{partial name of .Rdata object saved after running DABOM model for Upper Columbia.}
 
 \item{brood_file_path}{file path to broodstock collection file}
 
@@ -51,6 +52,8 @@ prep_wen_sthd_data(
 \item{n_observers}{how many observers / boats were used on each survey?}
 
 \item{query_year}{which year or years should be included in this query?}
+
+\item{phos_data}{should the data used to estimate pHOS come from PIT \code{tags} or \code{escapement} estimates? Default is \code{tags}.}
 
 \item{save_rda}{should the data that's returned by saved as an .RData object (\code{TRUE})? Default value of \code{FALSE} loads all the returned objects into the Global Environment.}
 

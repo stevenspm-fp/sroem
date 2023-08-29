@@ -16,8 +16,10 @@ prep_met_sthd_data <- function(
   redd_file_name = "Methow_Redd_Surveys.xlsx",
   experience_path = redd_file_path,
   experience_file_name = redd_file_name,
-  dabom_file_path = "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/estimates",
-  dabom_file_name = "UC_STHD_Model_Output.xlsx",
+  dabom_file_path = "O:Documents/Git/MyProjects/DabomPriestRapidsSthd/analysis/data/derived_data/estimates",
+  dabom_file_name = "UC_Sthd_DABOM_",
+  brood_file_path = "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/inputs/Bio Data/Sex and Origin PRD-Brood Comparison Data",
+  brood_file_name = "STHD UC Brood Collections_2011 to current.xlsx",
   removal_file_path = "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/inputs/Fish Removals/Archived",
   removal_file_name = "UC_Removals.csv",
   n_observers = "two",
@@ -53,47 +55,61 @@ prep_met_sthd_data <- function(
 
   message("\t Pulling PIT tag data.\n\n")
 
-  # get info on tags detected somewhere in the Wenatchee
-  met_tags_all <- readxl::read_excel(paste(dabom_file_path,
-                                           dabom_file_name,
-                                           sep = "/"),
-                                     sheet = "Tag Summary") |>
-    janitor::clean_names() |>
-    dplyr::filter(str_detect(path, "LMR"),
-                  spawn_year %in% query_year) |>
+  dabom_df <- tibble(spawn_year = query_year,
+                     dam_nm = if_else(spawn_year %in% c(2011:2015, 2018),
+                                      "PriestRapids",
+                                      "RockIsland"))
+
+  # get info on tags detected somewhere in the Methow
+  all_tags <- dabom_df |>
+    dplyr::mutate(tag_summ = purrr::map2(spawn_year,
+                                         dam_nm,
+                                         .f = function(yr, dam_nm) {
+                                           sroem::query_dabom_results(dabom_file_path = dabom_file_path,
+                                                                      dabom_dam_nm = dam_nm,
+                                                                      dabom_file_name = dabom_file_name,
+                                                                      query_year = yr,
+                                                                      result_type = "tag_summ")
+                                         })) |>
+    select(-dam_nm) |>
+    tidyr::unnest(tag_summ)
+
+  met_tags_all <-
+    all_tags |>
+    dplyr::filter(str_detect(path, "LMR")) |>
     dplyr::mutate(location = dplyr::if_else(str_detect(spawn_node, "^MRC") |
-                                       str_detect(spawn_node, "^LMR"),
-                                     'Lower Methow',
-                                     dplyr::if_else(str_detect(path, " LBC"),
-                                             "Libby",
-                                             dplyr::if_else(str_detect(path, " GLC"),
-                                                     "Gold",
-                                                     dplyr::if_else(str_detect(path, " BVC"),
-                                                             "Beaver",
-                                                             dplyr::if_else(str_detect(path, " TWR"),
-                                                                     "Twisp",
-                                                                     dplyr::if_else(str_detect(path, " MSH"),
-                                                                             "Methow Fish Hatchery",
-                                                                             dplyr::if_else(str_detect(path, " SCP"),
-                                                                                     "Spring Creek",
-                                                                                     dplyr::if_else(str_detect(path, " CRW"),
-                                                                                             "Chewuch",
-                                                                                             dplyr::if_else(str_detect(path, " MRW"),
-                                                                                                     "Upper Methow",
-                                                                                                     NA_character_)))))))))) |>
+                                              str_detect(spawn_node, "^LMR"),
+                                            'Lower Methow',
+                                            dplyr::if_else(str_detect(path, " LBC"),
+                                                           "Libby",
+                                                           dplyr::if_else(str_detect(path, " GLC"),
+                                                                          "Gold",
+                                                                          dplyr::if_else(str_detect(path, " BVC"),
+                                                                                         "Beaver",
+                                                                                         dplyr::if_else(str_detect(path, " TWR"),
+                                                                                                        "Twisp",
+                                                                                                        dplyr::if_else(str_detect(path, " MSH"),
+                                                                                                                       "Methow Fish Hatchery",
+                                                                                                                       dplyr::if_else(str_detect(path, " SCP"),
+                                                                                                                                      "Spring Creek",
+                                                                                                                                      dplyr::if_else(str_detect(path, " CRW"),
+                                                                                                                                                     "Chewuch",
+                                                                                                                                                     dplyr::if_else(str_detect(path, " MRW"),
+                                                                                                                                                                    "Upper Methow",
+                                                                                                                                                                    NA_character_)))))))))) |>
     dplyr::mutate(
       dplyr::across(
         location,
-        factor,
-        levels = c("Lower Methow",
-                   "Upper Methow",
-                   "Chewuch",
-                   "Twisp",
-                   "Methow Fish Hatchery",
-                   "Spring Creek",
-                   "Beaver",
-                   "Gold",
-                   "Libby"))) |>
+        ~ factor(.,
+                 levels = c("Lower Methow",
+                            "Upper Methow",
+                            "Chewuch",
+                            "Twisp",
+                            "Methow Fish Hatchery",
+                            "Spring Creek",
+                            "Beaver",
+                            "Gold",
+                            "Libby")))) |>
     dplyr::select(spawn_year,
                   tag_code,
                   location,
@@ -103,19 +119,19 @@ prep_met_sthd_data <- function(
                   cwt) |>
     # differentiate different tags in hatchery fish
     dplyr::mutate(mark_grp = if_else(origin == "W",
-                           "W",
-                           if_else(!is.na(ad_clip) & is.na(cwt),
-                                   "HOR-SN",
-                                   if_else(!is.na(cwt),
-                                           "HOR-C",
-                                           "HOR-C")))) |>
+                                     "W",
+                                     if_else(!is.na(ad_clip) & is.na(cwt),
+                                             "HOR-SN",
+                                             if_else(!is.na(cwt),
+                                                     "HOR-C",
+                                                     "HOR-C")))) |>
     dplyr::mutate(
       dplyr::across(
         mark_grp,
-        factor,
-        levels = c("W",
-                   "HOR-SN",
-                   "HOR-C")))
+        ~ factor(.,
+                 levels = c("W",
+                            "HOR-SN",
+                            "HOR-C"))))
 
   #-------------------------------------------------------
   # generate fish / redd and pHOS for different areas
@@ -147,14 +163,34 @@ prep_met_sthd_data <- function(
   # adjust fish / redd for errors in Priest sex calls
   # the excel file contains rounded numbers, so re-calculate
   # various statistics for use in analyses
-  sex_err_rate <- readxl::read_excel(paste(dabom_file_path,
-                                           dabom_file_name,
-                                           sep = "/"),
-                                     sheet = "Sex Error Rates") |>
-    janitor::clean_names() |>
-    dplyr::select(spawn_year:n_false) |>
-    dplyr::filter(spawn_year %in% query_year) |>
-    dplyr::rowwise() |>
+  # estimate error rate for each sex
+  sex_err_rate <-
+    all_tags |>
+    dplyr::select(spawn_year,
+                  tag_code,
+                  sex_field = sex) |>
+    dplyr::inner_join(readxl::read_excel(paste(brood_file_path,
+                                               brood_file_name,
+                                               sep = "/"),
+                                         sheet = "Brood Collected_PIT Tagged Only") |>
+                        janitor::clean_names() |>
+                        dplyr::rename(tag_code = recaptured_pit) |>
+                        dplyr::select(spawn_year,
+                                      tag_code,
+                                      sex_final) |>
+                        dplyr::distinct(),
+                      by = c("spawn_year",
+                             "tag_code")) |>
+    dplyr::filter(!is.na(sex_final),
+                  !is.na(sex_field)) |>
+    dplyr::mutate(agree = dplyr::if_else(sex_field == sex_final,
+                                         T, F)) |>
+    dplyr::group_by(spawn_year,
+                    sex = sex_field) |>
+    dplyr::summarize(n_tags = dplyr::n_distinct(tag_code),
+                     n_true = sum(agree),
+                     n_false = sum(!agree),
+                     .groups = "drop") |>
     dplyr::mutate(binom_ci = map2(n_false,
                                   n_tags,
                                   .f = function(x, y) {
@@ -163,8 +199,12 @@ prep_met_sthd_data <- function(
                                   })) |>
     tidyr::unnest(binom_ci) |>
     janitor::clean_names() |>
-    dplyr::rename(perc_false = est) |>
-    dplyr::mutate(perc_se = sqrt((perc_false * (1 - perc_false)) / n_tags))
+    dplyr::rename(perc_false = est,
+                  lowerci = lwr_ci,
+                  upperci = upr_ci) |>
+    dplyr::mutate(perc_se = sqrt((perc_false * (1 - perc_false)) / n_tags)) |>
+    dplyr::relocate(perc_se,
+                    .after = "perc_false")
 
   adj_fpr <- fpr_all |>
     dplyr::select(spawn_year,
@@ -287,13 +327,20 @@ prep_met_sthd_data <- function(
 
   message("\t Gathering PIT escapement estimates.\n")
 
-  all_escp = readxl::read_excel(paste(dabom_file_path,
-                                      dabom_file_name,
-                                      sep = "/"),
-                                sheet = "Run Escp All Locations") |>
-    janitor::clean_names() |>
-    dplyr::filter(spawn_year %in% query_year,
-                  location %in% c('LMR',
+  all_escp <- dabom_df |>
+    dplyr::mutate(escp = purrr::map2(spawn_year,
+                                     dam_nm,
+                                     .f = function(yr, dam_nm) {
+                                       sroem::query_dabom_results(dabom_file_path = dabom_file_path,
+                                                                  dabom_dam_nm = dam_nm,
+                                                                  dabom_file_name = dabom_file_name,
+                                                                  query_year = yr,
+                                                                  result_type = "escape_summ")
+                                     })) |>
+    select(-c(spawn_year,
+              dam_nm)) |>
+    tidyr::unnest(escp) |>
+    dplyr::filter(location %in% c('LMR',
                                   'LMR_bb',
                                   'MRC_bb',
                                   "GLC",
@@ -303,7 +350,14 @@ prep_met_sthd_data <- function(
                                   "TWR",
                                   "CRW",
                                   "SCP",
-                                  "BVC"))
+                                  "BVC")) |>
+    dplyr::select(spawn_year,
+                  origin,
+                  location,
+                  estimate = median,
+                  se = sd,
+                  lci = lowerCI,
+                  uci = upperCI)
 
   # pull out estimates of tributary spawners from DABOM
   trib_spawners_all = all_escp |>
@@ -319,7 +373,9 @@ prep_met_sthd_data <- function(
                   origin,
                   location,
                   spawners = estimate,
-                  spawners_se = se) |>
+                  spawners_se = se,
+                  lci,
+                  uci) |>
     dplyr::mutate(
       dplyr::across(origin,
                     recode,
@@ -338,30 +394,80 @@ prep_met_sthd_data <- function(
     dplyr::arrange(location, origin)
 
   # pull out mainstem escapement estimates
-  escp_met_all = all_escp |>
+  # escp_met_all = all_escp |>
+  #   dplyr::filter(location %in% c('LMR',
+  #                                 'LMR_bb',
+  #                                 'MRC_bb')) |>
+  #   dplyr::mutate(
+  #     dplyr::across(location,
+  #                   recode,
+  #                   'LMR' = 'Methow_all',
+  #                   'LMR_bb' = 'Lower Methow',
+  #                   'MRC_bb' = 'Lower Methow')) |>
+  #   dplyr::mutate(
+  #     dplyr::across(origin,
+  #                   recode,
+  #                   "W" = "Natural",
+  #                   "H" = "Hatchery")) |>
+  #   dplyr::group_by(spawn_year,
+  #                   location,
+  #                   origin) |>
+  #   dplyr::summarise(
+  #     dplyr::across(estimate,
+  #                   sum),
+  #     dplyr::across(se,
+  #                   ~ sqrt(sum(.^2))),
+  #     .groups = "drop")
+
+
+  escp_met_all <-
+    dabom_df |>
+    dplyr::mutate(post = purrr::map2(spawn_year,
+                                     dam_nm,
+                                     .f = function(yr, dam_nm) {
+                                       sroem::query_dabom_results(dabom_file_path = dabom_file_path,
+                                                                  dabom_dam_nm = dam_nm,
+                                                                  dabom_file_name = dabom_file_name,
+                                                                  query_year = yr,
+                                                                  result_type = "escape_post")
+                                     })) |>
+    select(-dam_nm) |>
+    tidyr::unnest(post) |>
+    dplyr::rename(location = param) |>
     dplyr::filter(location %in% c('LMR',
                                   'LMR_bb',
                                   'MRC_bb')) |>
     dplyr::mutate(
-      dplyr::across(location,
-                    recode,
-                    'LMR' = 'Methow_all',
-                    'LMR_bb' = 'Lower Methow',
-                    'MRC_bb' = 'Lower Methow')) |>
+      dplyr::across(
+        location,
+        ~ dplyr::recode(.,
+                        'LMR' = 'Methow_all',
+                        'LMR_bb' = 'Lower Methow',
+                        'MRC_bb' = 'Lower Methow'))) |>
     dplyr::mutate(
-      dplyr::across(origin,
-                    recode,
-                    "W" = "Natural",
-                    "H" = "Hatchery")) |>
+      dplyr::across(
+        origin,
+        ~ dplyr::recode(.,
+                        "W" = "Natural",
+                        "H" = "Hatchery"))) |>
+    dplyr::group_by(spawn_year,
+                    location,
+                    origin,
+                    chain,
+                    iter) |>
+    dplyr::summarise(
+      dplyr::across(escp,
+                    sum),
+      .groups = "drop") |>
     dplyr::group_by(spawn_year,
                     location,
                     origin) |>
-    dplyr::summarise(
-      dplyr::across(estimate,
-                    sum),
-      dplyr::across(se,
-                    ~ sqrt(sum(.^2))),
-      .groups = "drop")
+    summarize(estimate = median(escp),
+              se = sd(escp),
+              lci = coda::HPDinterval(coda::as.mcmc(escp))[,1],
+              uci = coda::HPDinterval(coda::as.mcmc(escp))[,2],
+              .groups = "drop")
+
 
   #-----------------------------------------------------------------
   # save
