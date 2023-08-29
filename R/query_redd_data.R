@@ -49,7 +49,7 @@ query_redd_data <- function(
       )
     )
 
-  # to-date, only grab experience covariates from Wenatchee data
+  # slightly different format for experience tables between Wenatchee and Methow
   if(stringr::str_detect(redd_file_name, "Wenatchee")) {
 
     # get experience data
@@ -71,6 +71,29 @@ query_redd_data <- function(
           as.numeric
         )
       )
+  } else if(stringr::str_detect(redd_file_name, "Methow")) {
+    # get experience data
+    exp_df <- suppressMessages(readxl::read_excel(paste(experience_path,
+                                                        experience_file_name,
+                                                        sep = "/"),
+                                                  sheet = "Experience",
+                                                  skip = 1)) |>
+      dplyr::rename(basin = `...1`,
+                    # agency = `...2`,
+                    surveyor_name = `...2`,
+                    surveyor_initials = `...3`,
+                    notes = `...14`) |>
+      dplyr::select(-notes) |>
+      tidyr::pivot_longer(-c(basin:surveyor_initials),
+                          names_to = "spawn_year",
+                          values_to = "experience") |>
+      dplyr::mutate(
+        dplyr::across(
+          spawn_year,
+          as.numeric
+        )
+      )
+  }
 
     redd_surv_df <- redd_surv_df |>
       dplyr::mutate(
@@ -92,7 +115,6 @@ query_redd_data <- function(
       dplyr::rowwise() |>
       dplyr::mutate(exp_sp_total = mean(c(exp1, exp2), na.rm = T)) |>
       dplyr::ungroup()
-  }
 
   redd_df <- redd_surv_df |>
     dplyr::left_join(data_list$`Reach Length` |>

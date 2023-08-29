@@ -11,8 +11,8 @@ prep_wen_sthd_data(
   experience_path = redd_file_path,
   experience_file_name = redd_file_name,
   dabom_file_path =
-    "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/estimates",
-  dabom_file_name = "UC_STHD_Model_Output.xlsx",
+    "O:Documents/Git/MyProjects/DabomPriestRapidsSthd/analysis/data/derived_data/estimates",
+  dabom_file_name = "UC_Sthd_DABOM_",
   brood_file_path =
     "T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/inputs/Bio Data/Sex and Origin PRD-Brood Comparison Data",
   brood_file_name = "STHD UC Brood Collections_2011 to current.xlsx",
@@ -37,9 +37,9 @@ prep_wen_sthd_data(
 
 \item{experience_file_name}{name of Excel file containing experience data in a very particular format, with a sheet labeled "Experience"}
 
-\item{dabom_file_path}{file path to summary results from DABOM}
+\item{dabom_file_path}{file path to DABOM results. Should contain at least two folders names \code{RockIsland} and \code{PriestRapids}.}
 
-\item{dabom_file_name}{name of Excel file containing DABOM estimates in a very particular format}
+\item{dabom_file_name}{partial name of .Rdata object saved after running DABOM model for Upper Columbia.}
 
 \item{brood_file_path}{file path to broodstock collection file}
 
