@@ -74,27 +74,33 @@ prep_met_sthd_data <- function(
     select(-dam_nm) |>
     tidyr::unnest(tag_summ)
 
+  if("spawn_node" %in% names(all_tags)) {
+    all_tags <-
+      all_tags |>
+      rename(final_node = spawn_node)
+  }
+
   met_tags_all <-
     all_tags |>
-    dplyr::filter(str_detect(path, "LMR")) |>
-    dplyr::mutate(location = dplyr::if_else(str_detect(spawn_node, "^MRC") |
-                                              str_detect(spawn_node, "^LMR"),
+    dplyr::filter(stringr::str_detect(path, "LMR")) |>
+    dplyr::mutate(location = dplyr::if_else(stringr::str_detect(final_node, "^MRC") |
+                                              stringr::str_detect(final_node, "^LMR"),
                                             'Lower Methow',
-                                            dplyr::if_else(str_detect(path, " LBC"),
+                                            dplyr::if_else(stringr::str_detect(path, " LBC"),
                                                            "Libby",
-                                                           dplyr::if_else(str_detect(path, " GLC"),
+                                                           dplyr::if_else(stringr::str_detect(path, " GLC"),
                                                                           "Gold",
-                                                                          dplyr::if_else(str_detect(path, " BVC"),
+                                                                          dplyr::if_else(stringr::str_detect(path, " BVC"),
                                                                                          "Beaver",
-                                                                                         dplyr::if_else(str_detect(path, " TWR"),
+                                                                                         dplyr::if_else(stringr::str_detect(path, " TWR"),
                                                                                                         "Twisp",
-                                                                                                        dplyr::if_else(str_detect(path, " MSH"),
+                                                                                                        dplyr::if_else(stringr::str_detect(path, " MSH"),
                                                                                                                        "Methow Fish Hatchery",
-                                                                                                                       dplyr::if_else(str_detect(path, " SCP"),
+                                                                                                                       dplyr::if_else(stringr::str_detect(path, " SCP"),
                                                                                                                                       "Spring Creek",
-                                                                                                                                      dplyr::if_else(str_detect(path, " CRW"),
+                                                                                                                                      dplyr::if_else(stringr::str_detect(path, " CRW"),
                                                                                                                                                      "Chewuch",
-                                                                                                                                                     dplyr::if_else(str_detect(path, " MRW"),
+                                                                                                                                                     dplyr::if_else(stringr::str_detect(path, " MRW"),
                                                                                                                                                                     "Upper Methow",
                                                                                                                                                                     NA_character_)))))))))) |>
     dplyr::mutate(
@@ -217,10 +223,10 @@ prep_met_sthd_data <- function(
                         values_to = "n_fish") |>
     dplyr::mutate(
       dplyr::across(sex,
-                    str_remove,
-                    "^n_"),
+                    ~ stringr::str_remove(.,
+                                          "^n_")),
       dplyr::across(sex,
-                    str_to_title)) |>
+                    stringr::str_to_title)) |>
     dplyr::mutate(
       dplyr::across(sex,
                     recode,
