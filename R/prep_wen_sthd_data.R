@@ -75,10 +75,10 @@ prep_wen_sthd_data <- function(
 
   message("\t Pulling PIT tag data.\n\n")
 
-  dabom_df <- tibble(spawn_year = query_year,
-                     dam_nm = if_else(spawn_year %in% c(2011:2015, 2018),
-                                      "PriestRapids",
-                                      "RockIsland"))
+  dabom_df <- dplyr::tibble(spawn_year = query_year,
+                            dam_nm = dplyr::if_else(spawn_year %in% c(2011:2015, 2018),
+                                                    "PriestRapids",
+                                                    "RockIsland"))
 
   # get info on tags detected somewhere in the Wenatchee
   all_tags <- dabom_df |>
@@ -91,21 +91,27 @@ prep_wen_sthd_data <- function(
                                                                       query_year = yr,
                                                                       result_type = "tag_summ")
                                          })) |>
-    select(-dam_nm) |>
+    dplyr::select(-dam_nm) |>
     tidyr::unnest(tag_summ)
+
+  if("spawn_node" %in% names(all_tags)) {
+    all_tags <-
+      all_tags |>
+      rename(final_node = spawn_node)
+  }
 
   wen_tags_all <-
     all_tags |>
-    dplyr::filter(str_detect(path, "LWE")) |>
-    dplyr::mutate(location = dplyr::if_else(spawn_node %in% c('TUM', 'UWE'),
+    dplyr::filter(stringr::str_detect(path, "LWE")) |>
+    dplyr::mutate(location = dplyr::if_else(final_node %in% c('TUM', 'UWE'),
                                             'Above Tumwater',
-                                            dplyr::if_else(str_detect(spawn_node, "^LWE"),
+                                            dplyr::if_else(stringr::str_detect(final_node, "^LWE"),
                                                            "Below Tumwater",
-                                                           dplyr::if_else(str_detect(path, "CHL"),
+                                                           dplyr::if_else(stringr::str_detect(path, "CHL"),
                                                                           "Chiwawa",
-                                                                          dplyr::if_else(str_detect(path, "NAL"),
+                                                                          dplyr::if_else(stringr::str_detect(path, "NAL"),
                                                                                          "Nason",
-                                                                                         dplyr::if_else(str_detect(path, "PES"),
+                                                                                         dplyr::if_else(stringr::str_detect(path, "PES"),
                                                                                                         "Peshastin",
                                                                                                         "Other Tributaries"))))),
                   dplyr::across(location,
@@ -205,15 +211,15 @@ prep_wen_sthd_data <- function(
                         values_to = "n_fish") |>
     dplyr::mutate(
       dplyr::across(sex,
-                    str_remove,
-                    "^n_"),
+                    ~ stringr::str_remove(.,
+                                          "^n_")),
       dplyr::across(sex,
-                    str_to_title)) |>
+                    stringr::str_to_title)) |>
     dplyr::mutate(
       dplyr::across(sex,
-                    recode,
-                    "Male" = "M",
-                    "Female" = "F")) |>
+                    ~ dplyr::recode(.,
+                                    "Male" = "M",
+                                    "Female" = "F"))) |>
     dplyr::left_join(sex_err_rate |>
                        dplyr::select(spawn_year,
                                      sex,
@@ -305,7 +311,7 @@ prep_wen_sthd_data <- function(
   if(file.exists(paste(removal_file_path,
                        removal_file_name,
                        sep = "/"))) {
-    if(str_detect(removal_file_name, "csv$")) {
+    if(stringr::str_detect(removal_file_name, "csv$")) {
       removal_df <- readr::read_csv(paste(removal_file_path,
                                           removal_file_name,
                                           sep = "/")) |>
@@ -313,8 +319,8 @@ prep_wen_sthd_data <- function(
         dplyr::filter(subbasin == "Wenatchee",
                       spawn_year %in% query_year)
     }
-    if(str_detect(removal_file_name, "xls$") |
-       str_detect(removal_file_name, "xlsx$")) {
+    if(stringr::str_detect(removal_file_name, "xls$") |
+       stringr::str_detect(removal_file_name, "xlsx$")) {
 
       removal_df <- readxl::read_excel(paste(removal_file_path,
                                              removal_file_name,
@@ -348,7 +354,7 @@ prep_wen_sthd_data <- function(
                                      ends_with("_w")),
                             names_to = "source",
                             values_to = "removed") |>
-        dplyr::mutate(origin = str_sub(source, -1)) |>
+        dplyr::mutate(origin = stringr::str_sub(source, -1)) |>
         dplyr::relocate(origin,
                         .before = "removed") |>
         dplyr::filter(origin %in% c("h", "w")) |>
@@ -547,6 +553,9 @@ prep_wen_sthd_data <- function(
   if(phos_data == "escapement") {
     escp_phos <-
       escp_wen_all |>
+      bind_rows(trib_spawners_all |>
+                  rename(estimate = spawners,
+                         se = spawners_se)) |>
       select(spawn_year,
              location,
              origin,
