@@ -217,9 +217,9 @@ prep_wen_sthd_data <- function(
                     stringr::str_to_title)) |>
     dplyr::mutate(
       dplyr::across(sex,
-                    recode,
-                    "Male" = "M",
-                    "Female" = "F")) |>
+                    ~ dplyr::recode(.,
+                                    "Male" = "M",
+                                    "Female" = "F"))) |>
     dplyr::left_join(sex_err_rate |>
                        dplyr::select(spawn_year,
                                      sex,
@@ -553,6 +553,9 @@ prep_wen_sthd_data <- function(
   if(phos_data == "escapement") {
     escp_phos <-
       escp_wen_all |>
+      bind_rows(trib_spawners_all |>
+                  rename(estimate = spawners,
+                         se = spawners_se)) |>
       select(spawn_year,
              location,
              origin,
