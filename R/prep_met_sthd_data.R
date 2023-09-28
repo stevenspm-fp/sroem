@@ -24,11 +24,15 @@ prep_met_sthd_data <- function(
   removal_file_name = "UC_Removals.csv",
   n_observers = "two",
   query_year = lubridate::year(lubridate::today()) - 1,
+  phos_data = c("escapement",
+                "tags"),
   save_rda = F,
   save_by_year = T,
   save_file_path = here::here("analysis/data/derived_data"),
   save_file_name = NULL
 ) {
+
+  phos_data = match.arg(phos_data)
 
   message("\t Gathering redd data.\n")
 
@@ -229,9 +233,9 @@ prep_met_sthd_data <- function(
                     stringr::str_to_title)) |>
     dplyr::mutate(
       dplyr::across(sex,
-                    recode,
-                    "Male" = "M",
-                    "Female" = "F")) |>
+                    ~ recode(.,
+                             "Male" = "M",
+                             "Female" = "F"))) |>
     dplyr::left_join(sex_err_rate |>
                        dplyr::select(spawn_year,
                                      sex,
@@ -323,7 +327,8 @@ prep_met_sthd_data <- function(
   # read in data about known removals of fish prior to spawning
   removal_df <- readr::read_csv(paste(removal_file_path,
                                       removal_file_name,
-                                      sep = "/")) |>
+                                      sep = "/"),
+                                show_col_types = F) |>
     janitor::clean_names() |>
     dplyr::filter(subbasin == "Methow",
                   spawn_year %in% query_year)
@@ -384,19 +389,19 @@ prep_met_sthd_data <- function(
                   uci) |>
     dplyr::mutate(
       dplyr::across(origin,
-                    recode,
-                    "W" = "Natural",
-                    "H" = "Hatchery"),
+                    ~ recode(.,
+                             "W" = "Natural",
+                             "H" = "Hatchery")),
       dplyr::across(location,
-                    recode,
-                    "GLC" = "Gold",
-                    "LBC" = "Libby",
-                    "MSH" = "Methow Fish Hatchery",
-                    "MRW" = "Upper Methow",
-                    "TWR" = "Twisp",
-                    "CRW" = "Chewuch",
-                    "SCP" = "Spring Creek",
-                    "BVC" = "Beaver")) |>
+                    ~ recode(.,
+                             "GLC" = "Gold",
+                             "LBC" = "Libby",
+                             "MSH" = "Methow Fish Hatchery",
+                             "MRW" = "Upper Methow",
+                             "TWR" = "Twisp",
+                             "CRW" = "Chewuch",
+                             "SCP" = "Spring Creek",
+                             "BVC" = "Beaver"))) |>
     dplyr::arrange(location, origin)
 
   # pull out mainstem escapement estimates
@@ -473,6 +478,56 @@ prep_met_sthd_data <- function(
               lci = coda::HPDinterval(coda::as.mcmc(escp))[,1],
               uci = coda::HPDinterval(coda::as.mcmc(escp))[,2],
               .groups = "drop")
+
+  #-----------------------------------------------------------------
+  # use escapement estimates rather than tags to estimate pHOS
+  if(phos_data == "escapement") {
+    escp_phos <-
+      escp_met_all |>
+      bind_rows(trib_spawners_all |>
+                  rename(estimate = spawners,
+                         se = spawners_se)) |>
+      select(spawn_year,
+             location,
+             origin,
+             estimate,
+             se) |>
+      pivot_wider(names_from = origin,
+                  values_from = c(estimate, se)) |>
+      rowwise() |>
+      mutate(phos = estimate_Hatchery / (estimate_Hatchery + estimate_Natural),
+             phos_se = msm::deltamethod(~ x1 / (x1 + x2),
+                                        mean = c(estimate_Hatchery,
+                                                 estimate_Natural),
+                                        cov = diag(c(se_Hatchery,
+                                                     se_Natural)^2))) |>
+      ungroup()
+
+    fpr_all <-
+      fpr_all |>
+      left_join(escp_phos |>
+                  select(spawn_year,
+                         location,
+                         phos2 = phos,
+                         phos_se2 = phos_se),
+                by = join_by(spawn_year, location)) |>
+      mutate(
+        across(
+          phos,
+          ~ if_else(!is.na(phos2),
+                    phos2,
+                    .)),
+        across(
+          phos_se,
+          ~ if_else(!is.na(phos_se2),
+                    phos_se2,
+                    .))
+      ) |>
+      select(-c(phos2,
+                phos_se2))
+
+  }
+
 
 
   #-----------------------------------------------------------------

@@ -11,7 +11,7 @@
 #' @param removal_file_path file path to removal data file
 #' @param removal_file_name name of Excel file containing removal data in a very particular format
 #' @param n_observers how many observers / boats were used on each survey?
-#' @param phos_data should the data used to estimate pHOS come from PIT `tags` or `escapement` estimates? Default is `tags`.
+#' @param phos_data should the data used to estimate pHOS come from PIT `tags` or `escapement` estimates? Default is `escapement`.
 #' @param save_rda should the data that's returned by saved as an .RData object (`TRUE`)? Default value of `FALSE` loads all the returned objects into the Global Environment.
 #' @param save_file_path if `save_rda` is `TRUE`, where should the .RData object be saved?
 #' @param save_file_name if `save_rda` is `TRUE`, what should the file name be? Should end in ".rda".
@@ -36,8 +36,8 @@ prep_wen_sthd_data <- function(
   removal_file_name = "Master_STHD_Removals_2.18.23.MH.xlsx",
   n_observers = "two",
   query_year = lubridate::year(lubridate::today()) - 1,
-  phos_data = c("tags",
-                "escapement"),
+  phos_data = c("escapement",
+                "tags"),
   save_rda = F,
   save_by_year = T,
   save_file_path = here::here("analysis/data/derived_data"),
