@@ -6,18 +6,25 @@
 <!-- badges: start -->
 <!-- badges: end -->
 
-The goal of sroem is to provide functionality related to the redd
-observer error models described in Murdoch et al. (2018) and Murdoch et
-al. (2019).
+The goal of the `sroem` package is to provide functionality related to
+the redd observer error models for steelhead and Spring Chinook,
+described in Murdoch et al. (2018) and Murdoch et al. (2019).
 
 ## Installation
 
-You can install the development version of sroem from
-[GitHub](https://github.com/) with:
+You can install the R package `sroem` from [GitHub](https://github.com/)
+with:
 
 ``` r
 # install.packages("devtools")
 devtools::install_github("KevinSee/sroem")
+```
+
+You can install the development version with:
+
+``` r
+# install.packages("devtools")
+devtools::install_github("KevinSee/sroem@develop")
 ```
 
 # References
