@@ -89,7 +89,8 @@ prep_wen_sthd_data <- function(
                                                                       dabom_dam_nm = dam_nm,
                                                                       dabom_file_name = dabom_file_name,
                                                                       query_year = yr,
-                                                                      result_type = "tag_summ")
+                                                                      result_type = "tag_summ") |>
+                                             dplyr::select(-dplyr::any_of("spawn_year"))
                                          })) |>
     dplyr::select(-dam_nm) |>
     tidyr::unnest(tag_summ)
@@ -131,13 +132,17 @@ prep_wen_sthd_data <- function(
   #-------------------------------------------------------
   # generate fish / redd and pHOS for different areas
   fpr_all = wen_tags_all |>
+    dplyr::mutate(across(c(sex),
+                         ~ dplyr::recode(.,
+                                         "Male" = "M",
+                                         "Female" = "F"))) |>
     dplyr::group_by(spawn_year,
                     location) |>
-    dplyr::summarize(n_male = n_distinct(tag_code[sex == "M"]),
-                     n_female = n_distinct(tag_code[sex == "F"]),
+    dplyr::summarize(n_male = dplyr::n_distinct(tag_code[sex == "M"]),
+                     n_female = dplyr::n_distinct(tag_code[sex == "F"]),
                      n_sexed = n_male + n_female,
-                     n_wild = n_distinct(tag_code[origin == "W"]),
-                     n_hatch = n_distinct(tag_code[origin == "H"]),
+                     n_wild = dplyr::n_distinct(tag_code[origin == "W"]),
+                     n_hatch = dplyr::n_distinct(tag_code[origin == "H"]),
                      n_origin = n_wild + n_hatch,
                      .groups = "drop") |>
     dplyr::mutate(prop_m = n_male / n_sexed,
@@ -176,6 +181,11 @@ prep_wen_sthd_data <- function(
                              "tag_code")) |>
     dplyr::filter(!is.na(sex_final),
                   !is.na(sex_field)) |>
+    dplyr::mutate(across(c(sex_field,
+                           sex_final),
+                         ~ dplyr::recode(.,
+                                         "Male" = "M",
+                                         "Female" = "F"))) |>
     dplyr::mutate(agree = dplyr::if_else(sex_field == sex_final,
                                          T, F)) |>
     dplyr::group_by(spawn_year,
@@ -184,12 +194,12 @@ prep_wen_sthd_data <- function(
                      n_true = sum(agree),
                      n_false = sum(!agree),
                      .groups = "drop") |>
-    dplyr::mutate(binom_ci = map2(n_false,
-                                  n_tags,
-                                  .f = function(x, y) {
-                                    DescTools::BinomCI(x, y) |>
-                                      as_tibble()
-                                  })) |>
+    dplyr::mutate(binom_ci = purrr::map2(n_false,
+                                         n_tags,
+                                         .f = function(x, y) {
+                                           DescTools::BinomCI(x, y) |>
+                                             dplyr::as_tibble()
+                                         })) |>
     tidyr::unnest(binom_ci) |>
     janitor::clean_names() |>
     dplyr::rename(perc_false = est,
@@ -337,9 +347,10 @@ prep_wen_sthd_data <- function(
                                                      "adult trapping surplus W",
                                                      "brood collections W",
                                                      "harvest W",
-                                                     "adult trapping surplus T",
-                                                     "brood collections T",
-                                                     "harvest T")) |>
+                                                     "all removals H",
+                                                     "all removals W",
+                                                     "all removals T",
+                                                     "notes")) |>
         janitor::clean_names() |>
         dplyr::mutate(
           across(
@@ -403,8 +414,8 @@ prep_wen_sthd_data <- function(
                                                                  query_year = yr,
                                                                  result_type = "escape_summ")
                                     })) |>
-    select(-c(spawn_year,
-              dam_nm)) |>
+    dplyr::select(-c(spawn_year,
+                     dam_nm)) |>
     tidyr::unnest(escp) |>
     dplyr::filter(location %in% c('ICL',
                                   'PES',
@@ -507,7 +518,7 @@ prep_wen_sthd_data <- function(
                                                                   query_year = yr,
                                                                   result_type = "escape_post")
                                      })) |>
-    select(-dam_nm) |>
+    dplyr::select(-dam_nm) |>
     tidyr::unnest(post) |>
     dplyr::rename(location = param) |>
     dplyr::filter(location %in% c('LWE',
@@ -540,11 +551,11 @@ prep_wen_sthd_data <- function(
     dplyr::group_by(spawn_year,
                     location,
                     origin) |>
-    summarize(estimate = median(escp),
-              se = sd(escp),
-              lci = coda::HPDinterval(coda::as.mcmc(escp))[,1],
-              uci = coda::HPDinterval(coda::as.mcmc(escp))[,2],
-              .groups = "drop")
+    dplyr::summarize(estimate = median(escp),
+                     se = sd(escp),
+                     lci = coda::HPDinterval(coda::as.mcmc(escp))[,1],
+                     uci = coda::HPDinterval(coda::as.mcmc(escp))[,2],
+                     .groups = "drop")
 
 
 
@@ -553,33 +564,33 @@ prep_wen_sthd_data <- function(
   if(phos_data == "escapement") {
     escp_phos <-
       escp_wen_all |>
-      bind_rows(trib_spawners_all |>
-                  rename(estimate = spawners,
-                         se = spawners_se)) |>
-      select(spawn_year,
-             location,
-             origin,
-             estimate,
-             se) |>
-      pivot_wider(names_from = origin,
-                  values_from = c(estimate, se)) |>
-      rowwise() |>
-      mutate(phos = estimate_Hatchery / (estimate_Hatchery + estimate_Natural),
-             phos_se = msm::deltamethod(~ x1 / (x1 + x2),
-                                        mean = c(estimate_Hatchery,
-                                                 estimate_Natural),
-                                        cov = diag(c(se_Hatchery,
-                                                     se_Natural)^2))) |>
-      ungroup()
+      dplyr::bind_rows(trib_spawners_all |>
+                         dplyr::rename(estimate = spawners,
+                                       se = spawners_se)) |>
+      dplyr::select(spawn_year,
+                    location,
+                    origin,
+                    estimate,
+                    se) |>
+      tidyr::pivot_wider(names_from = origin,
+                         values_from = c(estimate, se)) |>
+      dplyr::rowwise() |>
+      dplyr::mutate(phos = estimate_Hatchery / (estimate_Hatchery + estimate_Natural),
+                    phos_se = msm::deltamethod(~ x1 / (x1 + x2),
+                                               mean = c(estimate_Hatchery,
+                                                        estimate_Natural),
+                                               cov = diag(c(se_Hatchery,
+                                                            se_Natural)^2))) |>
+      dplyr::ungroup()
 
     fpr_all <-
       fpr_all |>
-      left_join(escp_phos |>
-                  select(spawn_year,
-                         location,
-                         phos2 = phos,
-                         phos_se2 = phos_se),
-                by = join_by(spawn_year, location)) |>
+      dplyr::left_join(escp_phos |>
+                         dplyr::select(spawn_year,
+                                       location,
+                                       phos2 = phos,
+                                       phos_se2 = phos_se),
+                       by = dplyr::join_by(spawn_year, location)) |>
       mutate(
         across(
           phos,
