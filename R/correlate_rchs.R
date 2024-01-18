@@ -42,13 +42,19 @@ correlate_rchs <- function(redd_df = NULL,
     date_class <- redd_df |>
       pull({{ date_nm }}) |>
       class()
-    if (date_class == "Date") {
-      redd_df <- redd_df |>
-        mutate(across(
-          {{ date_nm }},
-          as.POSIXct
-        ))
-    }
+    # if (date_class == "Date") {
+    #   redd_df <- redd_df |>
+    #    mutate(across(
+    #      {{ date_nm }},
+    #      as.POSIXct
+    #    ))
+    # }
+    #commenting out line 45-51  and using 53-57 because it was giving error when date_class had two values
+    redd_df <- redd_df |>
+      mutate(across(
+        {{ date_nm }},
+        as.POSIXct
+      ))
 
     cor_mat <- redd_df |>
       rename(
